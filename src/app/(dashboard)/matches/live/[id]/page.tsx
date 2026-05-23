@@ -697,6 +697,95 @@ export default function LiveScorerPage({ params }: { params: Promise<{ id: strin
           </div>
         )}
       </AnimatePresence>
+
+      <AnimatePresence>
+        {showRunOutModal && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="absolute inset-0 bg-black/75 backdrop-blur-md" onClick={() => setShowRunOutModal(false)} />
+            <motion.div initial={{ opacity: 0, scale: 0.95, y: 15 }} animate={{ opacity: 1, scale: 1, y: 0 }} exit={{ opacity: 0, scale: 0.95, y: 15 }} className="relative w-full max-w-sm bg-slate-900 border border-slate-800 p-6 rounded-3xl shadow-2xl z-10 glass-card space-y-6">
+              <div>
+                <h3 className="text-lg font-black text-white uppercase tracking-tighter flex items-center gap-2">
+                  <AlertTriangle className="w-5 h-5 text-amber-500 animate-pulse" />
+                  Run Out Details
+                </h3>
+                <p className="text-[10px] text-slate-500 font-bold uppercase tracking-wider mt-1">Select batsman out and completed runs</p>
+              </div>
+
+              {/* Batsman Selection */}
+              <div className="space-y-2">
+                <label className="text-[10px] font-black text-slate-550 uppercase tracking-widest block">Who is out?</label>
+                <div className="flex gap-2">
+                  {strikerId && (
+                    <button
+                      type="button"
+                      onClick={() => setRunOutBatsmanId(strikerId)}
+                      className={`flex-1 p-3.5 rounded-xl border text-xs font-black uppercase tracking-wider transition-all cursor-pointer ${
+                        runOutBatsmanId === strikerId 
+                          ? "bg-rose-500/10 border-rose-500/40 text-rose-400" 
+                          : "bg-slate-950 border-slate-850 text-slate-400 hover:border-slate-700"
+                      }`}
+                    >
+                      {playersMap[strikerId]?.name} (Striker)
+                    </button>
+                  )}
+                  {nonStrikerId && (
+                    <button
+                      type="button"
+                      onClick={() => setRunOutBatsmanId(nonStrikerId)}
+                      className={`flex-1 p-3.5 rounded-xl border text-xs font-black uppercase tracking-wider transition-all cursor-pointer ${
+                        runOutBatsmanId === nonStrikerId 
+                          ? "bg-rose-500/10 border-rose-500/40 text-rose-450" 
+                          : "bg-slate-955 border-slate-850 text-slate-400 hover:border-slate-700"
+                      }`}
+                    >
+                      {playersMap[nonStrikerId]?.name} (Non-Striker)
+                    </button>
+                  )}
+                </div>
+              </div>
+
+              {/* Completed Runs */}
+              <div className="space-y-2">
+                <label className="text-[10px] font-black text-slate-550 uppercase tracking-widest block">Runs Completed</label>
+                <div className="grid grid-cols-5 gap-2">
+                  {[0, 1, 2, 3, 4].map((r) => (
+                    <button
+                      key={r}
+                      type="button"
+                      onClick={() => setRunOutRuns(r)}
+                      className={`h-11 rounded-xl border text-xs font-bold transition-all cursor-pointer flex items-center justify-center ${
+                        runOutRuns === r 
+                          ? "bg-indigo-500/20 border-indigo-500/45 text-white font-black" 
+                          : "bg-slate-955 border-slate-850 text-slate-400 hover:border-slate-800"
+                      }`}
+                    >
+                      {r}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              <div className="flex gap-3 pt-2">
+                <button
+                  type="button"
+                  onClick={() => setShowRunOutModal(false)}
+                  className="flex-1 h-12 rounded-xl border border-slate-850 text-slate-400 hover:text-white text-xs font-bold uppercase tracking-wider cursor-pointer"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  onClick={handleConfirmRunOut}
+                  className="flex-1 h-12 rounded-xl bg-amber-600 hover:bg-amber-500 text-white text-xs font-black uppercase tracking-wider shadow-lg cursor-pointer"
+                >
+                  Confirm Out
+                </button>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+
       <AnimatePresence>
         {showExtraType && (
           <div className="fixed inset-0 z-[60] flex items-center justify-center p-4">
