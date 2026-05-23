@@ -23,6 +23,7 @@ interface PlayerData {
     batting_avg?: string;
     bowling_avg?: string;
     dot_balls_bowled?: number;
+    hatricks?: number;
   };
   match_history: Array<{
     id: number;
@@ -161,6 +162,7 @@ export default function PlayerProfilePage({ params }: { params: Promise<{ id: st
                 <div><p className="text-[9px] font-bold text-slate-600 uppercase">Economy</p><p className="text-lg font-black text-white">{econ}</p></div>
                 <div><p className="text-[9px] font-bold text-slate-600 uppercase">Average</p><p className="text-lg font-black text-white">{p.bowling_avg}</p></div>
                 <div><p className="text-[9px] font-bold text-slate-600 uppercase">Dot Balls</p><p className="text-lg font-black text-white">{p.dot_balls_bowled || 0}</p></div>
+                <div><p className="text-[9px] font-bold text-slate-600 uppercase">Hat-tricks</p><p className="text-lg font-black text-amber-400">{p.hatricks || 0}</p></div>
                 <div><p className="text-[9px] font-bold text-slate-600 uppercase">Best Figures</p><p className="text-lg font-black text-indigo-400">{p.best_bowling || '0/0'}</p></div>
                 <div><p className="text-[9px] font-bold text-slate-600 uppercase">Overs</p><p className="text-lg font-black text-white">{getOvers(p.balls_bowled)}</p></div>
               </div>

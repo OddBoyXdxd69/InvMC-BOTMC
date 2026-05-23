@@ -18,7 +18,8 @@ export const initDB = async () => {
       wickets_taken INTEGER DEFAULT 0,
       runs_conceded INTEGER DEFAULT 0,
       balls_bowled INTEGER DEFAULT 0,
-      dot_balls_bowled INTEGER DEFAULT 0
+      dot_balls_bowled INTEGER DEFAULT 0,
+      hatricks INTEGER DEFAULT 0
     );
   `;
 
@@ -60,13 +61,16 @@ export const initDB = async () => {
       runs_conceded INTEGER DEFAULT 0,
       balls_bowled INTEGER DEFAULT 0,
       dot_balls_bowled INTEGER DEFAULT 0,
+      hatricks INTEGER DEFAULT 0,
       wicket_how TEXT DEFAULT 'not_out'
     );
   `;
 
   // Migrations for existing tables
   await sql`ALTER TABLE players ADD COLUMN IF NOT EXISTS dot_balls_bowled INTEGER DEFAULT 0`;
+  await sql`ALTER TABLE players ADD COLUMN IF NOT EXISTS hatricks INTEGER DEFAULT 0`;
   await sql`ALTER TABLE match_player_stats ADD COLUMN IF NOT EXISTS dot_balls_bowled INTEGER DEFAULT 0`;
+  await sql`ALTER TABLE match_player_stats ADD COLUMN IF NOT EXISTS hatricks INTEGER DEFAULT 0`;
   await sql`ALTER TABLE matches ADD COLUMN IF NOT EXISTS single_man_mode INTEGER DEFAULT 0`;
   await sql`ALTER TABLE matches ADD COLUMN IF NOT EXISTS toss_winner_id INTEGER`;
   await sql`ALTER TABLE matches ADD COLUMN IF NOT EXISTS toss_decision TEXT`;

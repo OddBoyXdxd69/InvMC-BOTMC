@@ -16,7 +16,7 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
     const match_history = await sql`
       SELECT m.id, m.team_a_name, m.team_b_name, m.date, m.winner,
              s.runs_scored, s.balls_faced, s.fours, s.sixes,
-             s.wickets_taken, s.runs_conceded, s.balls_bowled, s.dot_balls_bowled, s.wicket_how, s.team_name
+             s.wickets_taken, s.runs_conceded, s.balls_bowled, s.dot_balls_bowled, s.hatricks, s.wicket_how, s.team_name
       FROM match_player_stats s
       JOIN matches m ON s.match_id = m.id
       WHERE s.player_id = ${Number(id)}
