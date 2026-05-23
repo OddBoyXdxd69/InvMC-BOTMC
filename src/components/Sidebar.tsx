@@ -19,6 +19,7 @@ export function Sidebar({ onClose }: { onClose?: () => void }) {
   const menuItems = [
     { icon: Activity, label: "Live Dashboard", href: "/" },
     { icon: Users, label: "Player Directory", href: "/players" },
+    { icon: Trophy, label: "Hall of Fame", href: "/hall-of-fame" },
     { icon: Play, label: "Create Match", href: "/matches/new" },
     { icon: Lock, label: "Admin Panel", href: "/admin" },
   ];

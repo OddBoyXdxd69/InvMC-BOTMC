@@ -116,7 +116,8 @@ export async function POST(request: Request) {
           await sql`
             INSERT INTO match_player_stats (
               match_id, player_id, team_name, runs_scored, balls_faced, 
-              fours, sixes, wickets_taken, runs_conceded, balls_bowled, wicket_how
+              fours, sixes, wickets_taken, runs_conceded, balls_bowled, 
+              dot_balls_bowled, wicket_how
             ) VALUES (
               ${Number(match_id)},
               ${Number(stat.player_id)},
@@ -128,6 +129,7 @@ export async function POST(request: Request) {
               ${Number(stat.wickets_taken || 0)},
               ${Number(stat.runs_conceded || 0)},
               ${Number(stat.balls_bowled || 0)},
+              ${Number(stat.dot_balls_bowled || 0)},
               ${stat.wicket_how || "not_out"}
             )
           `;
@@ -141,7 +143,8 @@ export async function POST(request: Request) {
                 sixes = sixes + ${Number(stat.sixes || 0)},
                 wickets_taken = wickets_taken + ${Number(stat.wickets_taken || 0)},
                 runs_conceded = runs_conceded + ${Number(stat.runs_conceded || 0)},
-                balls_bowled = balls_bowled + ${Number(stat.balls_bowled || 0)}
+                balls_bowled = balls_bowled + ${Number(stat.balls_bowled || 0)},
+                dot_balls_bowled = dot_balls_bowled + ${Number(stat.dot_balls_bowled || 0)}
             WHERE id = ${Number(stat.player_id)}
           `;
         }

@@ -140,6 +140,7 @@ export default function PlayerProfilePage({ params }: { params: Promise<{ id: st
               <div className="grid grid-cols-2 gap-y-4">
                 <div><p className="text-[9px] font-bold text-slate-600 uppercase">Runs Scored</p><p className="text-lg font-black text-white">{p.runs_scored}</p></div>
                 <div><p className="text-[9px] font-bold text-slate-600 uppercase">Strike Rate</p><p className="text-lg font-black text-white">{sr}</p></div>
+                <div><p className="text-[9px] font-bold text-slate-600 uppercase">Average</p><p className="text-lg font-black text-white">{p.batting_avg}</p></div>
                 <div><p className="text-[9px] font-bold text-slate-600 uppercase">Fours / Sixes</p><p className="text-lg font-black text-white">{p.fours} / {p.sixes}</p></div>
                 <div><p className="text-[9px] font-bold text-slate-600 uppercase">Highest Score</p><p className="text-lg font-black text-emerald-500">{p.highest_score || '0'}</p></div>
               </div>
@@ -149,8 +150,10 @@ export default function PlayerProfilePage({ params }: { params: Promise<{ id: st
               <div className="grid grid-cols-2 gap-y-4">
                 <div><p className="text-[9px] font-bold text-slate-600 uppercase">Wickets</p><p className="text-lg font-black text-white">{p.wickets_taken}</p></div>
                 <div><p className="text-[9px] font-bold text-slate-600 uppercase">Economy</p><p className="text-lg font-black text-white">{econ}</p></div>
-                <div><p className="text-[9px] font-bold text-slate-600 uppercase">Runs Conceded</p><p className="text-lg font-black text-white">{p.runs_conceded}</p></div>
+                <div><p className="text-[9px] font-bold text-slate-600 uppercase">Average</p><p className="text-lg font-black text-white">{p.bowling_avg}</p></div>
+                <div><p className="text-[9px] font-bold text-slate-600 uppercase">Dot Balls</p><p className="text-lg font-black text-white">{p.dot_balls_bowled || 0}</p></div>
                 <div><p className="text-[9px] font-bold text-slate-600 uppercase">Best Figures</p><p className="text-lg font-black text-indigo-400">{p.best_bowling || '0/0'}</p></div>
+                <div><p className="text-[9px] font-bold text-slate-600 uppercase">Overs</p><p className="text-lg font-black text-white">{getOvers(p.balls_bowled)}</p></div>
               </div>
             </div>
           </div>

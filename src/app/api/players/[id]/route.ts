@@ -16,12 +16,23 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
     const match_history = await sql`
       SELECT m.id, m.team_a_name, m.team_b_name, m.date, m.winner,
              s.runs_scored, s.balls_faced, s.fours, s.sixes,
-             s.wickets_taken, s.runs_conceded, s.balls_bowled, s.wicket_how, s.team_name
+             s.wickets_taken, s.runs_conceded, s.balls_bowled, s.dot_balls_bowled, s.wicket_how, s.team_name
       FROM match_player_stats s
       JOIN matches m ON s.match_id = m.id
       WHERE s.player_id = ${Number(id)}
       ORDER BY m.id DESC
     `;
+
+    // 2.5 Calculate Averages
+    const dismissals = match_history.filter(m => m.wicket_how !== 'not_out').length;
+    const batting_avg = dismissals > 0 ? (player.runs_scored / dismissals).toFixed(2) : (player.runs_scored > 0 ? player.runs_scored.toFixed(2) : "0.00");
+    const bowling_avg = player.wickets_taken > 0 ? (player.runs_conceded / player.wickets_taken).toFixed(2) : "0.00";
+    
+    const enrichedPlayer = {
+      ...player,
+      batting_avg,
+      bowling_avg
+    };
 
     // 3. Achievements / Badges
     const badges = [];
@@ -35,7 +46,7 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
     const best_wkts = Math.max(...match_history.map(m => m.wickets_taken), 0);
     if (best_wkts >= 3) badges.push({ id: 'w3', name: 'Strike Bowler', desc: 'Took 3+ wickets in a single match', icon: '🎯' });
 
-    return NextResponse.json({ player, match_history, badges });
+    return NextResponse.json({ player: enrichedPlayer, match_history, badges });
   } catch (error: any) {
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
