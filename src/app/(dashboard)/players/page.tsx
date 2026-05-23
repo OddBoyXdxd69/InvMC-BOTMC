@@ -20,6 +20,7 @@ interface Player {
   best_bowling?: string;
   thirties?: number;
   fifties?: number;
+  hatricks?: number;
 }
 
 export default function PlayersPage() {
@@ -387,6 +388,7 @@ export default function PlayersPage() {
                             <p className="text-xs font-bold text-slate-200">{p.wickets_taken} Wkts</p>
                             <p className="text-[10px] text-slate-400 font-medium">Econ: {economy}</p>
                             <p className="text-[10px] text-slate-400 font-medium">BBI: {p.best_bowling || "0/0"}</p>
+                            <p className="text-[10px] text-slate-400 font-medium">HT: {p.hatricks || 0}</p>
                             <p className="text-[10px] text-slate-400 font-medium">
                               Overs: {getOvers(p.balls_bowled)}
                             </p>
