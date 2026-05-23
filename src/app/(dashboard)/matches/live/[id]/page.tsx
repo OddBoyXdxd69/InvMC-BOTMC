@@ -2,7 +2,7 @@
 
 import { useEffect, useState, use } from "react";
 import { useRouter } from "next/navigation";
-import { Trophy, RefreshCw, Undo2, Award, Zap, AlertTriangle, Plus, ChevronRight, UserPlus, Edit3, Target, Activity, CloudRain, Settings, Play, Pause, Check } from "lucide-react";
+import { Trophy, RefreshCw, Undo2, Award, Zap, AlertTriangle, Plus, ChevronRight, UserPlus, Edit3, Target, Activity, Settings, Check } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 
 interface Player {
@@ -74,21 +74,9 @@ export default function LiveScorerPage({ params }: { params: Promise<{ id: strin
   const resolvedParams = use(params);
   const matchId = resolvedParams.id;
 
+  const [loading, setLoading] = useState(true);
   const [lineup, setLineup] = useState<MatchLineup | null>(null);
   const [playersMap, setPlayersMap] = useState<Record<number, Player>>({});
-  const [loading, setLoading] = useState(true);
-
-  const getOvers = (ballsCount: number) => {
-    const oversCount = Math.floor(ballsCount / 6);
-    const remainingBalls = ballsCount % 6;
-    return `${oversCount}.${remainingBalls}`;
-  };
-
-  const getEconomy = (runs: number, ballsCount: number) => {
-    if (ballsCount === 0) return "0.00";
-    const overs = ballsCount / 6;
-    return (runs / overs).toFixed(2);
-  };
 
   // Core Scoring States
   const [innings, setInnings] = useState<1 | 2>(1);
@@ -113,11 +101,10 @@ export default function LiveScorerPage({ params }: { params: Promise<{ id: strin
   const [history, setHistory] = useState<ScorerState[]>([]);
 
   // Selection Modal states
+  const [showBowlerSelect, setShowBowlerSelect] = useState(false);
   const [showWicketModal, setShowWicketModal] = useState(false);
   const [wicketType, setWicketType] = useState<string>("bowled");
   
-  const [showBowlerSelect, setShowBowlerSelect] = useState(false);
-  const [showSettings, setShowSettings] = useState(false);
   const [showNextBatsmanSelect, setShowNextBatsmanSelect] = useState(false);
   const [replacingSlot, setReplacingSlot] = useState<"striker" | "non-striker">("striker");
   const [showRunOutModal, setShowRunOutModal] = useState(false);
@@ -130,29 +117,31 @@ export default function LiveScorerPage({ params }: { params: Promise<{ id: strin
   const [innings1Wkts, setInnings1Wkts] = useState(0);
   const [innings1B, setInnings1B] = useState(0);
 
+  const [showSettings, setShowSettings] = useState(false);
+
   useEffect(() => {
-    // 1. Fetch player details
+    // 1. Fetch Players Map
     fetch("/api/players")
       .then((res) => res.json())
       .then((data) => {
-        const mapping: Record<number, Player> = {};
+        const map: Record<number, Player> = {};
         if (Array.isArray(data)) {
           data.forEach((p) => {
-            mapping[p.id] = p;
+            map[p.id] = p;
           });
         }
-        setPlayersMap(mapping);
+        setPlayersMap(map);
 
-        // 2. Load lineup from localStorage
-        const cachedLineup = localStorage.getItem(`match_lineup_${matchId}`);
-        if (cachedLineup) {
-          const parsedLineup = JSON.parse(cachedLineup) as MatchLineup;
-          setLineup(parsedLineup);
+        // 2. Load Lineup from Local Storage
+        const savedLineup = localStorage.getItem(`match_lineup_${matchId}`);
+        if (savedLineup) {
+          const lineupConfig = JSON.parse(savedLineup) as MatchLineup;
+          setLineup(lineupConfig);
 
-          // 3. Load saved match state if it exists (so edits or refreshes don't lose score)
-          const cachedState = localStorage.getItem(`match_state_${matchId}`);
-          if (cachedState) {
-            const parsedState = JSON.parse(cachedState);
+          // 3. Load Scorer State (if any)
+          const savedState = localStorage.getItem(`match_state_${matchId}`);
+          if (savedState) {
+            const parsedState = JSON.parse(savedState);
             setInnings(parsedState.innings);
             setScore(parsedState.score);
             setWickets(parsedState.wickets);
@@ -173,16 +162,8 @@ export default function LiveScorerPage({ params }: { params: Promise<{ id: strin
             setIsSuspended(parsedState.isSuspended || false);
             setSuspendReason(parsedState.suspendReason || "");
             setLastBowlerId(parsedState.lastBowlerId || null);
-            
-            // Sync statistics arrays if players were added in editing mid-match
-            syncLineupStats(
-              parsedLineup, 
-              parsedState.innings, 
-              parsedState.batsmenStats || parsedState.batsmen || {}, 
-              parsedState.bowlerStats || parsedState.bowlers || {}
-            );
           } else {
-            initializeScoring(parsedLineup);
+            initializeScoring(lineupConfig);
           }
         } else {
           router.push("/matches/new");
@@ -193,12 +174,12 @@ export default function LiveScorerPage({ params }: { params: Promise<{ id: strin
         console.error(err);
         setLoading(false);
       });
-  }, [matchId]);
+  }, [matchId, router]);
 
-  // Sync state to local storage to make scoring refresh-proof
+  // Persist state to local storage on changes
   useEffect(() => {
     if (!lineup || loading) return;
-    const matchState = {
+    const stateToSave = {
       innings,
       score,
       wickets,
@@ -220,65 +201,13 @@ export default function LiveScorerPage({ params }: { params: Promise<{ id: strin
       suspendReason,
       lastBowlerId
     };
-    localStorage.setItem(`match_state_${matchId}`, JSON.stringify(matchState));
+    localStorage.setItem(`match_state_${matchId}`, JSON.stringify(stateToSave));
   }, [
-    innings,
-    score,
-    wickets,
-    balls,
-    overHistory,
-    strikerId,
-    nonStrikerId,
-    currentBowlerId,
-    batsmenStats,
-    bowlerStats,
-    innings1Total,
-    finalInnings1Batsmen,
-    finalInnings1Bowlers,
-    innings1Wkts,
-    innings1B,
-    ballsLog,
-    history,
-    isSuspended,
-    suspendReason,
-    lastBowlerId,
-    lineup,
-    loading,
-    matchId
+    innings, score, wickets, balls, overHistory, strikerId, nonStrikerId,
+    currentBowlerId, batsmenStats, bowlerStats, innings1Total, 
+    finalInnings1Batsmen, finalInnings1Bowlers, innings1Wkts, innings1B,
+    ballsLog, history, isSuspended, suspendReason, lastBowlerId, lineup, loading, matchId
   ]);
-
-  const syncLineupStats = (
-    currentLineup: MatchLineup, 
-    currentInnings: number,
-    currentBatsmenStats: Record<number, BatsmanState>, 
-    currentBowlerStats: Record<number, BowlerState>
-  ) => {
-    const updatedBatsmen = { ...currentBatsmenStats };
-    const updatedBowlers = { ...currentBowlerStats };
-    let changed = false;
-
-    const battingPlayerIds = currentInnings === 1 ? currentLineup.teamAPlayerIds : currentLineup.teamBPlayerIds;
-    const bowlingPlayerIds = currentInnings === 1 ? currentLineup.teamBPlayerIds : currentLineup.teamAPlayerIds;
-
-    battingPlayerIds.forEach((id) => {
-      if (!updatedBatsmen[id]) {
-        updatedBatsmen[id] = { playerId: id, runs: 0, balls: 0, fours: 0, sixes: 0, out: false };
-        changed = true;
-      }
-    });
-
-    bowlingPlayerIds.forEach((id) => {
-      if (!updatedBowlers[id]) {
-        updatedBowlers[id] = { playerId: id, runs: 0, balls: 0, wickets: 0 };
-        changed = true;
-      }
-    });
-
-    if (changed) {
-      setBatsmenStats(updatedBatsmen);
-      setBowlerStats(updatedBowlers);
-    }
-  };
 
   const initializeScoring = (lineupConfig: MatchLineup) => {
     const battingPlayerIds = lineupConfig.teamABatsFirst 
@@ -353,6 +282,8 @@ export default function LiveScorerPage({ params }: { params: Promise<{ id: strin
 
     let newScore = score;
     let newBalls = balls;
+    let nextStrikerId = strikerId;
+    let nextNonStrikerId = nonStrikerId;
 
     const updatedBatsmen = { ...batsmenStats };
     const updatedBowlers = { ...bowlerStats };
@@ -361,6 +292,13 @@ export default function LiveScorerPage({ params }: { params: Promise<{ id: strin
     const bowler = { ...updatedBowlers[currentBowlerId] };
 
     let overSymbol = runs.toString();
+
+    const rotate = () => {
+      if (!nextStrikerId || !nextNonStrikerId) return;
+      const temp = nextStrikerId;
+      nextStrikerId = nextNonStrikerId;
+      nextNonStrikerId = temp;
+    };
 
     if (isExtra === "wide") {
       newScore += runs + 1;
@@ -383,7 +321,7 @@ export default function LiveScorerPage({ params }: { params: Promise<{ id: strin
       striker.balls += 1;
       overSymbol = `${runs}B`;
       setOverHistory((prev) => [...prev, overSymbol]);
-      if (runs % 2 !== 0) swapStriker();
+      if (runs % 2 !== 0) rotate();
     } else {
       newScore += runs;
       newBalls += 1;
@@ -394,7 +332,7 @@ export default function LiveScorerPage({ params }: { params: Promise<{ id: strin
       if (runs === 4) striker.fours++;
       if (runs === 6) striker.sixes++;
       setOverHistory((prev) => [...prev, overSymbol]);
-      if (runs % 2 !== 0) swapStriker();
+      if (runs % 2 !== 0) rotate();
     }
 
     updatedBatsmen[strikerId] = striker;
@@ -424,16 +362,23 @@ export default function LiveScorerPage({ params }: { params: Promise<{ id: strin
     if (validBallsInOver === 0 && isExtra !== "wide" && isExtra !== "noball") {
       setOverHistory([]);
       if (!lineup.singleManMode) {
-        swapStriker();
+        rotate();
       }
       setLastBowlerId(currentBowlerId);
       
       const currentOvers = newBalls / 6;
       if (currentOvers >= lineup.oversLimit) {
+        setStrikerId(nextStrikerId);
+        setNonStrikerId(nextNonStrikerId);
         handleInningsComplete(newScore, wickets, newBalls, updatedBatsmen, updatedBowlers);
       } else {
+        setStrikerId(nextStrikerId);
+        setNonStrikerId(nextNonStrikerId);
         setShowBowlerSelect(true);
       }
+    } else {
+      setStrikerId(nextStrikerId);
+      setNonStrikerId(nextNonStrikerId);
     }
   };
 
@@ -503,16 +448,13 @@ export default function LiveScorerPage({ params }: { params: Promise<{ id: strin
       handleInningsComplete(score, newWickets, newBalls, updatedBatsmen, updatedBowlers);
     } else {
       const squadIds = innings === 1 ? lineup.teamAPlayerIds : lineup.teamBPlayerIds;
-      const waitingPlayers = squadIds.filter(id => !updatedBatsmen[id]?.out && id !== strikerId && id !== nonStrikerId);
+      const waitingPlayers = squadIds.filter(id => !updatedBatsmen[id]?.out && id !== nonStrikerId);
       
       if (waitingPlayers.length === 0 && (lineup.singleMan || lineup.singleManMode)) {
-        // Last man standing case (or single man mode with no one left)
+        // Last man standing case: Move non-striker to striker if needed
         if (!lineup.singleManMode) {
           setStrikerId(nonStrikerId);
           setNonStrikerId(null);
-        } else {
-          // In single man mode, if waiting is 0, innings should probably end, 
-          // but maxWickets check above handles it.
         }
         if (isOversEnd) {
           setLastBowlerId(currentBowlerId);
@@ -825,16 +767,15 @@ export default function LiveScorerPage({ params }: { params: Promise<{ id: strin
 
   const swapStriker = () => {
     if (!strikerId || !nonStrikerId) return;
-    setStrikerId((prev) => {
-      const next = nonStrikerId;
-      setNonStrikerId(prev);
-      return next;
-    });
+    const s = strikerId;
+    const ns = nonStrikerId;
+    setStrikerId(ns);
+    setNonStrikerId(s);
   };
 
   const handleInningsComplete = (
-    finalScore: number, 
-    finalWickets: number, 
+    finalScore: number,
+    finalWickets: number,
     finalBalls: number,
     finalBatsmen: Record<number, BatsmanState>,
     finalBowlers: Record<number, BowlerState>
@@ -843,13 +784,13 @@ export default function LiveScorerPage({ params }: { params: Promise<{ id: strin
 
     if (innings === 1) {
       alert(`Innings 1 Complete! ${lineup.teamAName} scored ${finalScore}/${finalWickets} in ${getOvers(finalBalls)} overs.`);
-      
+
       // Store temporary final stats of Innings 1
       setFinalInnings1Batsmen(finalBatsmen);
       setFinalInnings1Bowlers(finalBowlers);
       setInnings1Wkts(finalWickets);
       setInnings1B(finalBalls);
-      
+
       setInnings(2);
       setInnings1Total(finalScore);
 
@@ -862,20 +803,22 @@ export default function LiveScorerPage({ params }: { params: Promise<{ id: strin
 
       // Initialize Innings 2: Team B bats, Team A bowls
       const initialBatsmen: Record<number, BatsmanState> = {};
-      lineup.teamBPlayerIds.forEach((id) => {
+      const teamBIds = lineup.teamABatsFirst ? lineup.teamBPlayerIds : lineup.teamAPlayerIds;
+      teamBIds.forEach((id) => {
         initialBatsmen[id] = { playerId: id, runs: 0, balls: 0, fours: 0, sixes: 0, out: false };
       });
 
       const initialBowlers: Record<number, BowlerState> = {};
-      lineup.teamAPlayerIds.forEach((id) => {
+      const teamAIds = lineup.teamABatsFirst ? lineup.teamAPlayerIds : lineup.teamBPlayerIds;
+      teamAIds.forEach((id) => {
         initialBowlers[id] = { playerId: id, runs: 0, balls: 0, wickets: 0 };
       });
 
       setBatsmenStats(initialBatsmen);
       setBowlerStats(initialBowlers);
-      setStrikerId(lineup.teamBPlayerIds[0] || null);
-      setNonStrikerId(lineup.singleManMode ? null : (lineup.teamBPlayerIds[1] || null));
-      setCurrentBowlerId(lineup.teamAPlayerIds[0] || null);
+      setStrikerId(teamBIds[0] || null);
+      setNonStrikerId(lineup.singleManMode ? null : (teamBIds[1] || null));
+      setCurrentBowlerId(teamAIds[0] || null);
       
       setHistory([]);
     } else {
@@ -907,7 +850,8 @@ export default function LiveScorerPage({ params }: { params: Promise<{ id: strin
     // Process Team A stats (First innings batting, second innings bowling)
     lineup.teamAPlayerIds.forEach((id) => {
       const bat = finalInnings1Batsmen[id] || finalBatsmen[id] || { runs: 0, balls: 0, fours: 0, sixes: 0, out: false };
-      const bowl = finalBowlers[id] || { runs: 0, balls: 0, wickets: 0 };
+      const bowl = finalBowlers[id] || finalInnings1Bowlers[id] || { runs: 0, balls: 0, wickets: 0 };
+
       playerStats.push({
         player_id: id,
         team_name: lineup.teamAName,
@@ -922,10 +866,11 @@ export default function LiveScorerPage({ params }: { params: Promise<{ id: strin
       });
     });
 
-    // Process Team B stats (First innings bowling, second innings batting)
+    // Process Team B stats
     lineup.teamBPlayerIds.forEach((id) => {
       const bat = finalBatsmen[id] || finalInnings1Batsmen[id] || { runs: 0, balls: 0, fours: 0, sixes: 0, out: false };
-      const bowl = finalInnings1Bowlers[id] || { runs: 0, balls: 0, wickets: 0 };
+      const bowl = finalInnings1Bowlers[id] || finalBowlers[id] || { runs: 0, balls: 0, wickets: 0 };
+
       playerStats.push({
         player_id: id,
         team_name: lineup.teamBName,
@@ -965,27 +910,31 @@ export default function LiveScorerPage({ params }: { params: Promise<{ id: strin
         router.push(`/matches/${matchId}`);
       } else {
         alert("Failed to save match statistics to database.");
+        setIsCompleting(false);
       }
     } catch (err) {
+      console.error(err);
       alert("Error saving match details.");
+      setIsCompleting(false);
     }
   };
 
-  // Intercept Innings 1 metrics on mount/reloads if already in Innings 2
-  useEffect(() => {
-    if (innings === 2 && Object.keys(finalInnings1Batsmen).length === 0 && history.length > 0) {
-      setFinalInnings1Batsmen(history[history.length - 1]?.batsmen || {});
-      setFinalInnings1Bowlers(history[history.length - 1]?.bowlers || {});
-      setInnings1Wkts(history[history.length - 1]?.wickets || 0);
-      setInnings1B(history[history.length - 1]?.balls || 0);
-    }
-  }, [innings, history]);
+  const getEconomy = (runs: number, ballsCount: number) => {
+    if (ballsCount === 0) return "0.00";
+    const overs = ballsCount / 6;
+    return (runs / overs).toFixed(2);
+  };
 
-  // Live Score calculations
-  const runRate = balls > 0 ? ((score * 6) / balls).toFixed(2) : "0.00";
+  const getOvers = (ballsCount: number) => {
+    const oversCount = Math.floor(ballsCount / 6);
+    const remainingBalls = ballsCount % 6;
+    return `${oversCount}.${remainingBalls}`;
+  };
+
   const requiredRuns = innings === 2 ? (innings1Total + 1) - score : 0;
   const remainingBalls = lineup ? (lineup.oversLimit * 6) - balls : 0;
-  const requiredRate = remainingBalls > 0 ? ((requiredRuns * 6) / remainingBalls).toFixed(2) : "0.00";
+  const reqRunRate = remainingBalls > 0 ? ((requiredRuns * 6) / remainingBalls).toFixed(2) : "0.00";
+  const currRunRate = balls > 0 ? ((score * 6) / balls).toFixed(2) : "0.00";
 
   // Match complete checking for live innings 2 runs chase
   useEffect(() => {
@@ -1006,127 +955,78 @@ export default function LiveScorerPage({ params }: { params: Promise<{ id: strin
     );
   }
 
-  const battingTeamName = innings === 1 ? lineup.teamAName : lineup.teamBName;
-  const bowlingTeamName = innings === 1 ? lineup.teamBName : lineup.teamAName;
-
-  // Filter out recent balls log for the current innings to display
-  const currentInningsBallsLog = ballsLog.filter(b => b.innings === innings).reverse();
+  const battingTeamName = innings === 1 ? (lineup.teamABatsFirst ? lineup.teamAName : lineup.teamBName) : (lineup.teamABatsFirst ? lineup.teamBName : lineup.teamAName);
+  const bowlingTeamName = innings === 1 ? (lineup.teamABatsFirst ? lineup.teamBName : lineup.teamAName) : (lineup.teamABatsFirst ? lineup.teamAName : lineup.teamBName);
 
   return (
     <div className="max-w-5xl mx-auto space-y-6 pb-20 select-none">
-      {/* Suspended Banner */}
       {isSuspended && (
-        <motion.div 
-          initial={{ opacity: 0, y: -10 }} 
-          animate={{ opacity: 1, y: 0 }}
-          className="p-4 rounded-2xl border border-amber-500/30 bg-amber-500/10 flex flex-col sm:flex-row items-center justify-between gap-3"
-        >
+        <motion.div initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }} className="p-4 rounded-2xl border border-amber-500/30 bg-amber-500/10 flex flex-col sm:flex-row items-center justify-between gap-3">
           <div className="flex items-center gap-3">
-            <CloudRain className="w-6 h-6 text-amber-400 animate-pulse" />
+            <Activity className="w-6 h-6 text-amber-400 animate-pulse" />
             <div>
               <p className="text-sm font-bold text-amber-300">Match Suspended — {suspendReason || "Rain Delay"}</p>
               <p className="text-xs text-amber-400/70">All scoring is paused. Resume when ready.</p>
             </div>
           </div>
-          <button
-            onClick={handleResumeMatch}
-            className="h-10 px-5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs cursor-pointer transition-all flex items-center gap-1.5 shadow-lg"
-          >
-            <Play className="w-4 h-4" /> Resume Match
+          <button onClick={handleResumeMatch} className="h-10 px-5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs cursor-pointer transition-all flex items-center gap-1.5 shadow-lg">
+            Resume Match
           </button>
         </motion.div>
       )}
 
-      {/* Live Header Info */}
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center p-6 rounded-2xl border border-slate-900 glass-card gap-4 shadow-xl relative overflow-hidden">
         <div className="z-10">
           <p className="text-[10px] font-bold text-emerald-400 uppercase tracking-widest flex items-center gap-1.5 mb-1">
             <span className={`h-2 w-2 rounded-full ${isSuspended ? 'bg-amber-500' : 'bg-emerald-500'} animate-pulse`} />
             {isSuspended ? 'Suspended' : 'Live Scorer'} — Innings {innings}
           </p>
-          <h1 className="text-xl sm:text-2xl font-black text-white tracking-tight">
-            {lineup.teamAName} vs {lineup.teamBName}
-          </h1>
+          <h1 className="text-xl sm:text-2xl font-black text-white tracking-tight">{lineup.teamAName} vs {lineup.teamBName}</h1>
         </div>
+
         <div className="flex flex-wrap items-center gap-2 z-10">
-          <button
-            onClick={() => setShowSettings(true)}
-            className="h-10 px-3 rounded-xl border border-indigo-500/30 bg-indigo-500/10 text-indigo-400 hover:bg-indigo-500/20 transition-all flex items-center gap-1.5 text-xs font-semibold cursor-pointer"
-          >
+          <button onClick={() => setShowSettings(true)} className="h-10 px-3 rounded-xl border border-indigo-500/30 bg-indigo-500/10 text-indigo-400 hover:bg-indigo-500/20 transition-all flex items-center gap-1.5 text-xs font-semibold cursor-pointer">
             <Settings className="w-4 h-4" /> Settings
           </button>
-          <button
-            onClick={() => router.push(`/matches/live/${matchId}/edit`)}
-            className="h-10 px-3 rounded-xl border border-slate-800 bg-slate-900/40 text-slate-300 hover:text-white hover:border-slate-700 transition-all flex items-center gap-1.5 text-xs font-semibold cursor-pointer"
-          >
+          <button onClick={() => router.push(`/matches/live/${matchId}/edit`)} className="h-10 px-3 rounded-xl border border-slate-800 bg-slate-900/40 text-slate-300 hover:text-white hover:border-slate-700 transition-all flex items-center gap-1.5 text-xs font-semibold cursor-pointer">
             <Edit3 className="w-4 h-4" /> Edit
           </button>
-          <button
-            onClick={handleUndo}
-            disabled={history.length === 0 || isSuspended}
-            className="h-10 px-3 rounded-xl border border-slate-800 bg-slate-900/40 text-slate-300 hover:text-white hover:border-slate-700 disabled:opacity-30 disabled:cursor-not-allowed transition-all flex items-center gap-1.5 text-xs font-semibold cursor-pointer"
-          >
+          <button onClick={handleUndo} disabled={history.length === 0 || isSuspended} className="h-10 px-3 rounded-xl border border-slate-800 bg-slate-900/40 text-slate-300 hover:text-white hover:border-slate-700 disabled:opacity-30 disabled:cursor-not-allowed transition-all flex items-center gap-1.5 text-xs font-semibold cursor-pointer">
             <Undo2 className="w-4 h-4" /> Undo
           </button>
           {!isSuspended ? (
-            <button
-              onClick={handleSuspendMatch}
-              className="h-10 px-3 rounded-xl border border-amber-500/30 bg-amber-500/10 text-amber-400 hover:bg-amber-500/20 transition-all flex items-center gap-1.5 text-xs font-semibold cursor-pointer"
-            >
-              <CloudRain className="w-4 h-4" /> Rain
+            <button onClick={handleSuspendMatch} className="h-10 px-3 rounded-xl border border-amber-500/30 bg-amber-500/10 text-amber-400 hover:bg-amber-500/20 transition-all flex items-center gap-1.5 text-xs font-semibold cursor-pointer">
+              <Activity className="w-4 h-4" /> Rain
             </button>
           ) : (
-            <button
-              onClick={handleResumeMatch}
-              className="h-10 px-3 rounded-xl border border-emerald-500/30 bg-emerald-500/10 text-emerald-400 hover:bg-emerald-500/20 transition-all flex items-center gap-1.5 text-xs font-semibold cursor-pointer"
-            >
-              <Play className="w-4 h-4" /> Resume
+             <button onClick={handleResumeMatch} className="h-10 px-3 rounded-xl border border-emerald-500/30 bg-emerald-500/10 text-emerald-400 hover:bg-emerald-500/20 transition-all flex items-center gap-1.5 text-xs font-semibold cursor-pointer">
+              Resume
             </button>
           )}
         </div>
       </div>
 
-      {/* Main Scoreboard Display */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-        {/* Score & Run Rate Display */}
         <section className="md:col-span-2 p-6 sm:p-8 rounded-2xl border border-slate-900 glass-card shadow-xl flex flex-col justify-between relative overflow-hidden">
           <div className="absolute right-0 top-0 w-36 h-36 bg-emerald-500/5 rounded-full blur-3xl pointer-events-none" />
-          
           <div className="flex justify-between items-start">
             <div>
               <p className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">{battingTeamName} batting</p>
-              <h2 className="text-5xl sm:text-6xl font-black text-white tracking-tighter mt-2">
-                {score} <span className="text-3xl text-slate-500 font-light">/ {wickets}</span>
-              </h2>
+              <h2 className="text-5xl sm:text-6xl font-black text-white tracking-tighter mt-2">{score} <span className="text-3xl text-slate-500 font-light">/ {wickets}</span></h2>
             </div>
             <div className="text-right">
               <p className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Overs</p>
-              <h3 className="text-3xl sm:text-4xl font-extrabold text-white tracking-tight mt-2">
-                {getOvers(balls)} <span className="text-sm font-semibold text-slate-500">/ {lineup.oversLimit}</span>
-              </h3>
+              <h3 className="text-3xl sm:text-4xl font-extrabold text-white tracking-tight mt-2">{getOvers(balls)} <span className="text-sm font-semibold text-slate-500">/ {lineup.oversLimit}</span></h3>
             </div>
           </div>
 
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mt-8 pt-6 border-t border-slate-900/60">
-            <div>
-              <span className="text-[9px] text-slate-500 uppercase tracking-wider font-bold block mb-1">Run Rate</span>
-              <span className="text-base font-extrabold text-emerald-400">{runRate}</span>
-            </div>
-            
+            <div><span className="text-[9px] text-slate-500 uppercase tracking-wider font-bold block mb-1">Run Rate</span><span className="text-base font-extrabold text-emerald-400">{currRunRate}</span></div>
             {innings === 2 && (
               <>
-                <div>
-                  <span className="text-[9px] text-slate-500 uppercase tracking-wider font-bold block mb-1">Target</span>
-                  <span className="text-base font-extrabold text-indigo-400">{innings1Total + 1}</span>
-                </div>
-                <div>
-                  <span className="text-[9px] text-slate-500 uppercase tracking-wider font-bold block mb-1">Runs Required</span>
-                  <span className="text-base font-extrabold text-white">{requiredRuns}</span>
-                </div>
-                <div>
-                  <span className="text-[9px] text-slate-500 uppercase tracking-wider font-bold block mb-1">Req. Rate</span>
-                  <span className="text-base font-extrabold text-indigo-400">{requiredRate}</span>
-                </div>
+                <div><span className="text-[9px] text-slate-500 uppercase tracking-wider font-bold block mb-1">Target</span><span className="text-base font-extrabold text-indigo-400">{innings1Total + 1}</span></div>
+                <div><span className="text-[9px] text-slate-500 uppercase tracking-wider font-bold block mb-1">Runs Required</span><span className="text-base font-extrabold text-white">{requiredRuns}</span></div>
+                <div><span className="text-[9px] text-slate-500 uppercase tracking-wider font-bold block mb-1">Req. Rate</span><span className="text-base font-extrabold text-indigo-400">{reqRunRate}</span></div>
               </>
             )}
           </div>
@@ -1144,60 +1044,27 @@ export default function LiveScorerPage({ params }: { params: Promise<{ id: strin
             </button>
           </div>
           <div className="space-y-4">
-            {/* Batsmen */}
             <div className="space-y-2">
-              <div className="flex justify-between items-center text-xs font-bold text-slate-500 uppercase tracking-wider">
-                <span>Batsman</span>
-                <span>R (B)</span>
-              </div>
-              
+              <div className="flex justify-between items-center text-xs font-bold text-slate-500 uppercase tracking-wider"><span>Batsman</span><span>R (B)</span></div>
               {strikerId && batsmenStats[strikerId] && (
-                <div 
-                  onClick={() => setShowSettings(true)}
-                  className="flex justify-between items-center p-2 rounded-lg bg-emerald-500/5 border border-emerald-500/20 cursor-pointer hover:border-emerald-500/40 transition-all"
-                >
-                  <span className="text-sm font-semibold text-emerald-400 flex items-center gap-1.5">
-                    <Zap className="w-3.5 h-3.5 text-emerald-400 animate-pulse" />
-                    {playersMap[strikerId]?.name} *
-                  </span>
-                  <span className="text-sm font-bold text-emerald-400">
-                    {batsmenStats[strikerId].runs} ({batsmenStats[strikerId].balls})
-                  </span>
+                <div onClick={() => setShowSettings(true)} className="flex justify-between items-center p-2 rounded-lg bg-emerald-500/5 border border-emerald-500/20 cursor-pointer hover:border-emerald-500/40 transition-all">
+                  <span className="text-sm font-semibold text-emerald-400 flex items-center gap-1.5"><Zap className="w-3.5 h-3.5 text-emerald-400 animate-pulse" /> {playersMap[strikerId]?.name} *</span>
+                  <span className="text-sm font-bold text-emerald-400">{batsmenStats[strikerId].runs} ({batsmenStats[strikerId].balls})</span>
                 </div>
               )}
-
               {nonStrikerId && batsmenStats[nonStrikerId] && (
-                <div 
-                  onClick={() => setShowSettings(true)}
-                  className="flex justify-between items-center p-2 rounded-lg bg-slate-900/50 border border-slate-800 cursor-pointer hover:border-slate-700 transition-all"
-                >
-                  <span className="text-sm font-semibold text-slate-300">
-                    {playersMap[nonStrikerId]?.name}
-                  </span>
-                  <span className="text-sm font-bold text-slate-400">
-                    {batsmenStats[nonStrikerId].runs} ({batsmenStats[nonStrikerId].balls})
-                  </span>
+                <div onClick={() => setShowSettings(true)} className="flex justify-between items-center p-2 rounded-lg bg-slate-900/50 border border-slate-800 cursor-pointer hover:border-slate-700 transition-all">
+                  <span className="text-sm font-semibold text-slate-300">{playersMap[nonStrikerId]?.name}</span>
+                  <span className="text-sm font-bold text-slate-400">{batsmenStats[nonStrikerId].runs} ({batsmenStats[nonStrikerId].balls})</span>
                 </div>
               )}
             </div>
-
-            {/* Bowler */}
             <div className="space-y-2 pt-2 border-t border-slate-900/60">
-              <div className="flex justify-between items-center text-xs font-bold text-slate-500 uppercase tracking-wider">
-                <span>Bowler</span>
-                <span>O-R-W</span>
-              </div>
+              <div className="flex justify-between items-center text-xs font-bold text-slate-500 uppercase tracking-wider"><span>Bowler</span><span>O-R-W</span></div>
               {currentBowlerId && bowlerStats[currentBowlerId] && (
-                <div 
-                  onClick={() => setShowBowlerSelect(true)}
-                  className="flex justify-between items-center p-2 rounded-lg bg-slate-900/50 border border-slate-800 cursor-pointer hover:border-emerald-500/30 transition-all"
-                >
-                  <span className="text-sm font-semibold text-white">
-                    {playersMap[currentBowlerId]?.name}
-                  </span>
-                  <span className="text-sm font-bold text-slate-300">
-                    {getOvers(bowlerStats[currentBowlerId].balls)} - {bowlerStats[currentBowlerId].runs} - {bowlerStats[currentBowlerId].wickets}
-                  </span>
+                <div onClick={() => setShowBowlerSelect(true)} className="flex justify-between items-center p-2 rounded-lg bg-slate-900/50 border border-slate-800 cursor-pointer hover:border-emerald-500/30 transition-all">
+                  <span className="text-sm font-semibold text-white">{playersMap[currentBowlerId]?.name}</span>
+                  <span className="text-sm font-bold text-slate-300">{getOvers(bowlerStats[currentBowlerId].balls)} - {bowlerStats[currentBowlerId].runs} - {bowlerStats[currentBowlerId].wickets}</span>
                 </div>
               )}
             </div>
@@ -1205,50 +1072,23 @@ export default function LiveScorerPage({ params }: { params: Promise<{ id: strin
         </section>
       </div>
 
-      {/* Ball History Over Feed */}
       <div className="p-4 rounded-xl border border-slate-900 bg-slate-900/10 flex items-center justify-between gap-4">
         <span className="text-xs font-bold text-slate-500 uppercase tracking-widest">This Over:</span>
         <div className="flex flex-wrap gap-1.5 flex-1 justify-end">
-          {overHistory.length > 0 ? (
-            overHistory.map((val, i) => (
-              <span 
-                key={i} 
-                className={`w-7 h-7 rounded-full flex items-center justify-center text-[10px] font-extrabold border ${
-                  val === "W" || val.includes("W")
-                    ? "bg-rose-500/20 border-rose-500/40 text-rose-400"
-                    : val.includes("Wd") || val.includes("Nb")
-                    ? "bg-amber-500/20 border-amber-500/40 text-amber-400"
-                    : val === "4" || val === "6"
-                    ? "bg-emerald-500/25 border-emerald-500/50 text-emerald-400 font-black scale-110"
-                    : "bg-slate-900 border-slate-800 text-slate-400"
-                }`}
-              >
-                {val}
-              </span>
-            ))
-          ) : (
-            <span className="text-xs text-slate-600 font-light italic">Waiting for first ball...</span>
-          )}
+          {overHistory.length > 0 ? overHistory.map((sym, i) => (
+            <span key={i} className={`w-7 h-7 rounded-full flex items-center justify-center text-[10px] font-extrabold border ${sym === "W" || sym.includes("W") ? "bg-rose-500/20 border-rose-500/40 text-rose-400" : sym.includes("Wd") || sym.includes("Nb") ? "bg-amber-500/20 border-amber-500/40 text-amber-400" : sym === "4" || sym === "6" ? "bg-emerald-500/25 border-emerald-500/50 text-emerald-400 font-black scale-110" : "bg-slate-900 border-slate-800 text-slate-400"}`}>
+              {sym}
+            </span>
+          )) : <span className="text-xs text-slate-600 font-light italic">Waiting for first ball...</span>}
         </div>
       </div>
 
-      {/* Scoring Controller Button Pads */}
-      <div className={`grid grid-cols-1 md:grid-cols-3 gap-6 ${isSuspended ? 'opacity-30 pointer-events-none' : ''}`}>
-        {/* Run Clickers */}
+      <div className={`grid grid-cols-1 md:grid-cols-3 gap-6 ${isSuspended ? "opacity-30 pointer-events-none" : ""}`}>
         <section className="md:col-span-2 p-6 rounded-2xl border border-slate-900 glass-card space-y-4 shadow-xl">
           <h3 className="text-xs font-bold text-slate-400 uppercase tracking-widest border-b border-slate-900 pb-2">Runs Pad <span className="text-slate-600">(Max boundary: 4)</span></h3>
           <div className="grid grid-cols-3 sm:grid-cols-5 gap-3">
             {[0, 1, 2, 3, 4].map((r) => (
-              <button
-                key={r}
-                onClick={() => handleScoreBall(r)}
-                disabled={isSuspended}
-                className={`h-16 rounded-xl border font-black text-xl transition-all cursor-pointer flex flex-col items-center justify-center ${
-                  r === 4
-                    ? "bg-emerald-500/10 border-emerald-500/25 text-emerald-400 hover:bg-emerald-500/20 hover:scale-105 active:scale-95"
-                    : "bg-slate-900 border-slate-800 text-white hover:bg-slate-800 hover:scale-105 active:scale-95"
-                }`}
-              >
+              <button key={r} onClick={() => handleScoreBall(r)} disabled={isSuspended} className={`h-16 rounded-xl border font-black text-xl transition-all cursor-pointer flex flex-col items-center justify-center ${r === 4 ? "bg-emerald-500/10 border-emerald-500/25 text-emerald-400 hover:bg-emerald-500/20 hover:scale-105 active:scale-95" : "bg-slate-900 border-slate-800 text-white hover:bg-slate-800 hover:scale-105 active:scale-95"}`}>
                 <span>{r}</span>
                 <span className="text-[9px] font-bold text-slate-500 uppercase tracking-widest mt-0.5">{r === 4 ? 'FOUR' : 'Runs'}</span>
               </button>
@@ -1256,63 +1096,15 @@ export default function LiveScorerPage({ params }: { params: Promise<{ id: strin
           </div>
         </section>
 
-        {/* Extras, Wickets & Six and Out Pad */}
         <section className="p-6 rounded-2xl border border-slate-900 glass-card space-y-4 shadow-xl">
           <h3 className="text-xs font-bold text-slate-400 uppercase tracking-widest border-b border-slate-900 pb-2">Dismissals & Extras</h3>
           <div className="grid grid-cols-2 gap-3">
-            <button
-              onClick={() => setShowExtraType(showExtraType === "wide" ? null : "wide")}
-              disabled={isSuspended}
-              className={`h-12 rounded-xl border transition-all font-semibold text-xs cursor-pointer active:scale-95 flex items-center justify-center gap-1.5 ${
-                showExtraType === "wide" 
-                  ? "bg-amber-500/20 border-amber-500/40 text-amber-300" 
-                  : "border-slate-800 bg-slate-900 text-amber-400 hover:bg-slate-800"
-              }`}
-            >
-              Wide
-            </button>
-            <button
-              onClick={() => setShowExtraType(showExtraType === "noball" ? null : "noball")}
-              disabled={isSuspended}
-              className={`h-12 rounded-xl border transition-all font-semibold text-xs cursor-pointer active:scale-95 flex items-center justify-center gap-1.5 ${
-                showExtraType === "noball" 
-                  ? "bg-amber-500/20 border-amber-500/40 text-amber-300" 
-                  : "border-slate-800 bg-slate-900 text-amber-400 hover:bg-slate-800"
-              }`}
-            >
-              No Ball
-            </button>
-
-            <button
-              onClick={() => setShowExtraType(showExtraType === "bye" ? null : "bye")}
-              disabled={isSuspended}
-              className={`h-12 rounded-xl border transition-all font-semibold text-xs cursor-pointer active:scale-95 flex items-center justify-center gap-1.5 ${
-                showExtraType === "bye" 
-                  ? "bg-slate-700 border-slate-600 text-white" 
-                  : "border-slate-800 bg-slate-900 text-slate-300 hover:bg-slate-800"
-              }`}
-            >
-              Bye
-            </button>
-            <button
-              onClick={handleWicket}
-              disabled={isSuspended}
-              className="h-12 rounded-xl bg-rose-650 hover:bg-rose-550 text-white border border-rose-900/40 transition-all font-extrabold text-xs cursor-pointer active:scale-95 flex items-center justify-center gap-1.5 shadow-md shadow-rose-600/10"
-            >
-              OUT / Wicket
-            </button>
-            <button
-              onClick={handleRunOut}
-              disabled={isSuspended}
-              className="h-12 rounded-xl bg-amber-600 hover:bg-amber-500 text-white border border-amber-900/40 transition-all font-extrabold text-xs cursor-pointer active:scale-95 flex items-center justify-center gap-1.5 shadow-md shadow-amber-600/10"
-            >
-              Run Out
-            </button>
-            <button
-              onClick={handleSixAndOut}
-              disabled={isSuspended}
-              className="col-span-2 h-14 rounded-xl bg-gradient-to-r from-rose-600 to-amber-600 hover:from-rose-500 hover:to-amber-500 text-white transition-all font-black text-xs cursor-pointer active:scale-95 flex flex-col items-center justify-center shadow-lg shadow-rose-600/15"
-            >
+            <button onClick={() => setShowExtraType(showExtraType === "wide" ? null : "wide")} disabled={isSuspended} className={`h-12 rounded-xl border transition-all font-semibold text-xs cursor-pointer active:scale-95 flex items-center justify-center gap-1.5 ${showExtraType === "wide" ? "bg-amber-500/20 border-amber-500/40 text-amber-300" : "border-slate-800 bg-slate-900 text-amber-400 hover:bg-slate-800"}`}>Wide</button>
+            <button onClick={() => setShowExtraType(showExtraType === "noball" ? null : "noball")} disabled={isSuspended} className={`h-12 rounded-xl border transition-all font-semibold text-xs cursor-pointer active:scale-95 flex items-center justify-center gap-1.5 ${showExtraType === "noball" ? "bg-amber-500/20 border-amber-500/40 text-amber-300" : "border-slate-800 bg-slate-900 text-amber-400 hover:bg-slate-800"}`}>No Ball</button>
+            <button onClick={() => setShowExtraType(showExtraType === "bye" ? null : "bye")} disabled={isSuspended} className={`h-12 rounded-xl border transition-all font-semibold text-xs cursor-pointer active:scale-95 flex items-center justify-center gap-1.5 ${showExtraType === "bye" ? "bg-slate-700 border-slate-600 text-white" : "border-slate-800 bg-slate-900 text-slate-300 hover:bg-slate-800"}`}>Bye</button>
+            <button onClick={handleWicket} disabled={isSuspended} className="h-12 rounded-xl bg-rose-650 hover:bg-rose-550 text-white border border-rose-900/40 transition-all font-extrabold text-xs cursor-pointer active:scale-95 flex items-center justify-center gap-1.5 shadow-md shadow-rose-600/10">OUT / Wicket</button>
+            <button onClick={handleRunOut} disabled={isSuspended} className="h-12 rounded-xl bg-amber-600 hover:bg-amber-500 text-white border border-amber-900/40 transition-all font-extrabold text-xs cursor-pointer active:scale-95 flex items-center justify-center gap-1.5 shadow-md shadow-amber-600/10">Run Out</button>
+            <button onClick={handleSixAndOut} disabled={isSuspended} className="col-span-2 h-14 rounded-xl bg-gradient-to-r from-rose-600 to-amber-600 hover:from-rose-500 hover:to-amber-500 text-white transition-all font-black text-xs cursor-pointer active:scale-95 flex flex-col items-center justify-center shadow-lg shadow-rose-600/15">
               <span>💥 Common Out</span>
               <span className="text-[8px] font-bold uppercase tracking-widest text-white/80 mt-0.5">Hits Boundary → OUT (0 runs counted)</span>
             </button>
@@ -1337,7 +1129,7 @@ export default function LiveScorerPage({ params }: { params: Promise<{ id: strin
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-900/40">
-              {(innings === 1 ? lineup.teamBPlayerIds : lineup.teamAPlayerIds)
+              {(innings === 1 ? (lineup.teamABatsFirst ? lineup.teamBPlayerIds : lineup.teamAPlayerIds) : (lineup.teamABatsFirst ? lineup.teamAPlayerIds : lineup.teamBPlayerIds))
                 .filter(id => bowlerStats[id] && bowlerStats[id].balls > 0)
                 .map(id => (
                   <tr key={id} className={`transition-colors ${id === currentBowlerId ? 'bg-emerald-500/5' : ''}`}>
@@ -1366,526 +1158,183 @@ export default function LiveScorerPage({ params }: { params: Promise<{ id: strin
       </section>
 
       {/* MODALS & OVERLAYS */}
-      
-      {/* 1. Wicket Modal */}
       <AnimatePresence>
         {showWicketModal && (
           <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-            <motion.div 
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-              className="absolute inset-0 bg-black/75 backdrop-blur-md"
-              onClick={() => setShowWicketModal(false)}
-            />
-            <motion.div 
-              initial={{ opacity: 0, scale: 0.95, y: 15 }}
-              animate={{ opacity: 1, scale: 1, y: 0 }}
-              exit={{ opacity: 0, scale: 0.95, y: 15 }}
-              className="relative w-full max-w-sm bg-slate-900 border border-slate-800 p-6 rounded-2xl shadow-2xl z-10 glass-card"
-            >
-              <h3 className="text-lg font-bold text-white mb-4 flex items-center gap-2">
-                <AlertTriangle className="w-5 h-5 text-rose-500 animate-pulse" /> Dismissal Details
-              </h3>
+            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="absolute inset-0 bg-black/75 backdrop-blur-md" onClick={() => setShowWicketModal(false)} />
+            <motion.div initial={{ opacity: 0, scale: 0.95, y: 15 }} animate={{ opacity: 1, scale: 1, y: 0 }} exit={{ opacity: 0, scale: 0.95, y: 15 }} className="relative w-full max-w-sm bg-slate-900 border border-slate-800 p-6 rounded-2xl shadow-2xl z-10 glass-card">
+              <h3 className="text-lg font-bold text-white mb-4 flex items-center gap-2"><AlertTriangle className="w-5 h-5 text-rose-500 animate-pulse" /> Dismissal Details</h3>
               <div className="space-y-4">
                 <div className="space-y-2">
                   <label className="text-xs font-semibold uppercase tracking-wider text-slate-400">Dismissal How</label>
-                  <select
-                    value={wicketType}
-                    onChange={(e) => setWicketType(e.target.value)}
-                    className="flex h-12 w-full rounded-xl border border-slate-800 bg-slate-950 px-4 py-2 text-sm text-slate-100 focus:outline-none focus:border-rose-500 transition-all cursor-pointer"
-                  >
-                    <option value="bowled">Bowled</option>
-                    <option value="caught">Caught</option>
-                    <option value="lbw">LBW</option>
-                    <option value="run_out">Run Out</option>
-                    <option value="stumped">Stumped</option>
+                  <select value={wicketType} onChange={(e) => setWicketType(e.target.value)} className="flex h-12 w-full rounded-xl border border-slate-800 bg-slate-950 px-4 py-2 text-sm text-slate-100 focus:outline-none focus:border-rose-500 transition-all cursor-pointer">
+                    <option value="bowled">Bowled</option><option value="caught">Caught</option><option value="lbw">LBW</option><option value="run_out">Run Out</option><option value="stumped">Stumped</option>
                   </select>
                 </div>
-                <button
-                  onClick={handleConfirmWicket}
-                  className="w-full h-12 rounded-xl bg-rose-600 hover:bg-rose-500 text-white font-bold text-sm cursor-pointer shadow-lg transition-all active:scale-[0.98]"
-                >
-                  Confirm Dismissal
-                </button>
+                <button onClick={handleConfirmWicket} className="w-full h-12 rounded-xl bg-rose-600 hover:bg-rose-500 text-white font-bold text-sm cursor-pointer shadow-lg transition-all active:scale-[0.98]">Confirm Dismissal</button>
               </div>
             </motion.div>
           </div>
         )}
       </AnimatePresence>
 
-      {/* 1.5 Run Out Modal */}
       <AnimatePresence>
         {showRunOutModal && (
           <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-            <motion.div 
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-              className="absolute inset-0 bg-black/75 backdrop-blur-md"
-              onClick={() => setShowRunOutModal(false)}
-            />
-            <motion.div 
-              initial={{ opacity: 0, scale: 0.95, y: 15 }}
-              animate={{ opacity: 1, scale: 1, y: 0 }}
-              exit={{ opacity: 0, scale: 0.95, y: 15 }}
-              className="relative w-full max-w-sm bg-slate-900 border border-slate-800 p-6 rounded-2xl shadow-2xl z-10 glass-card"
-            >
-              <h3 className="text-lg font-bold text-white mb-4 flex items-center gap-2">
-                <AlertTriangle className="w-5 h-5 text-amber-500 animate-pulse" /> Run Out Details
-              </h3>
-              
+            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="absolute inset-0 bg-black/75 backdrop-blur-md" onClick={() => setShowRunOutModal(false)} />
+            <motion.div initial={{ opacity: 0, scale: 0.95, y: 15 }} animate={{ opacity: 1, scale: 1, y: 0 }} exit={{ opacity: 0, scale: 0.95, y: 15 }} className="relative w-full max-w-sm bg-slate-900 border border-slate-800 p-6 rounded-2xl shadow-2xl z-10 glass-card">
+              <h3 className="text-lg font-bold text-white mb-4 flex items-center gap-2"><AlertTriangle className="w-5 h-5 text-amber-500 animate-pulse" /> Run Out Details</h3>
               <div className="space-y-6">
-                {/* 1. Who is out */}
-                <div className="space-y-2">
-                  <label className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Who is out?</label>
+                <div className="space-y-2"><label className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Who is out?</label>
                   <div className="grid grid-cols-2 gap-2">
                     {[strikerId, nonStrikerId].map(id => id && (
-                      <button
-                        key={id}
-                        onClick={() => setRunOutBatsmanId(id)}
-                        className={`p-3 rounded-xl border text-xs font-bold transition-all ${
-                          runOutBatsmanId === id 
-                            ? "bg-amber-500/20 border-amber-500/50 text-amber-400" 
-                            : "bg-slate-950 border-slate-800 text-slate-400 hover:border-slate-700"
-                        }`}
-                      >
-                        {playersMap[id]?.name}
-                      </button>
+                      <button key={id} onClick={() => setRunOutBatsmanId(id)} className={`p-3 rounded-xl border text-xs font-bold transition-all ${runOutBatsmanId === id ? "bg-amber-500/20 border-amber-500/50 text-amber-400" : "bg-slate-950 border-slate-800 text-slate-400 hover:border-slate-700"}`}>{playersMap[id]?.name}</button>
                     ))}
                   </div>
                 </div>
-
-                {/* 2. Runs completed */}
-                <div className="space-y-2">
-                  <label className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Runs Completed (0-6)</label>
+                <div className="space-y-2"><label className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Runs Completed (0-6)</label>
                   <div className="grid grid-cols-4 gap-2">
                     {[0, 1, 2, 3, 4, 5, 6].map(r => (
-                      <button
-                        key={r}
-                        onClick={() => setRunOutRuns(r)}
-                        className={`h-10 rounded-lg border text-sm font-black transition-all ${
-                          runOutRuns === r 
-                            ? "bg-emerald-500/20 border-emerald-500/50 text-emerald-400" 
-                            : "bg-slate-950 border-slate-800 text-slate-400 hover:border-slate-700"
-                        }`}
-                      >
-                        {r}
-                      </button>
+                      <button key={r} onClick={() => setRunOutRuns(r)} className={`h-10 rounded-lg border text-sm font-black transition-all ${runOutRuns === r ? "bg-emerald-500/20 border-emerald-500/50 text-emerald-400" : "bg-slate-950 border-slate-800 text-slate-400 hover:border-slate-700"}`}>{r}</button>
                     ))}
                   </div>
                 </div>
-
-                <button
-                  onClick={handleConfirmRunOut}
-                  disabled={!runOutBatsmanId}
-                  className="w-full h-12 rounded-xl bg-amber-600 hover:bg-amber-500 text-white font-bold text-sm cursor-pointer shadow-lg transition-all active:scale-[0.98] disabled:opacity-30"
-                >
-                  Confirm Run Out
-                </button>
-                <button
-                  onClick={() => setShowRunOutModal(false)}
-                  className="w-full text-slate-500 hover:text-slate-300 text-xs font-bold transition-colors"
-                >
-                  Cancel
-                </button>
+                <button onClick={handleConfirmRunOut} disabled={!runOutBatsmanId} className="w-full h-12 rounded-xl bg-amber-600 hover:bg-amber-500 text-white font-bold text-sm cursor-pointer shadow-lg transition-all active:scale-[0.98] disabled:opacity-30">Confirm Run Out</button>
+                <button onClick={() => setShowRunOutModal(false)} className="w-full text-slate-500 hover:text-slate-300 text-xs font-bold transition-colors">Cancel</button>
               </div>
             </motion.div>
           </div>
         )}
       </AnimatePresence>
 
-      {/* 2. Bowler Selection Modal */}
       <AnimatePresence>
         {showBowlerSelect && (
           <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-            <motion.div 
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-              className="absolute inset-0 bg-black/75 backdrop-blur-md"
-            />
-            <motion.div 
-              initial={{ opacity: 0, scale: 0.95, y: 15 }}
-              animate={{ opacity: 1, scale: 1, y: 0 }}
-              exit={{ opacity: 0, scale: 0.95, y: 15 }}
-              className="relative w-full max-w-sm bg-slate-900 border border-slate-800 p-6 rounded-2xl shadow-2xl z-10 glass-card"
-            >
-              <h3 className="text-lg font-bold text-white mb-4 flex items-center gap-2">
-                <Target className="w-5 h-5 text-indigo-400" /> Select Bowler
-              </h3>
-              <p className="text-xs text-slate-400 mb-4 font-light leading-relaxed">
-                Over completed! Select bowler for the next over from {bowlingTeamName}.
-              </p>
+            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="absolute inset-0 bg-black/75 backdrop-blur-md" />
+            <motion.div initial={{ opacity: 0, scale: 0.95, y: 15 }} animate={{ opacity: 1, scale: 1, y: 0 }} exit={{ opacity: 0, scale: 0.95, y: 15 }} className="relative w-full max-w-sm bg-slate-900 border border-slate-800 p-6 rounded-2xl shadow-2xl z-10 glass-card">
+              <h3 className="text-lg font-bold text-white mb-4 flex items-center gap-2"><Target className="w-5 h-5 text-indigo-400" /> Select Bowler</h3>
+              <p className="text-xs text-slate-400 mb-4 font-light leading-relaxed">Over completed! Select bowler for the next over from {bowlingTeamName}.</p>
               <div className="space-y-2 max-h-[250px] overflow-y-auto pr-1">
-                {(innings === 1 ? (lineup.teamABatsFirst ? lineup.teamBPlayerIds : lineup.teamAPlayerIds) : (lineup.teamABatsFirst ? lineup.teamAPlayerIds : lineup.teamBPlayerIds))
-                  .map((id) => {
+                {(innings === 1 ? (lineup.teamABatsFirst ? lineup.teamBPlayerIds : lineup.teamAPlayerIds) : (lineup.teamABatsFirst ? lineup.teamAPlayerIds : lineup.teamBPlayerIds)).map((id) => {
+                  const isLastBowler = id === lastBowlerId;
+                  const oversDone = bowlerStats[id] ? Math.floor(bowlerStats[id].balls / 6) : 0;
+                  const hasReachedLimit = lineup.bowlerLimit > 0 && oversDone >= lineup.bowlerLimit;
+                  const isDisabled = isLastBowler || hasReachedLimit;
+                  return (
+                    <button key={id} disabled={isDisabled} onClick={() => { if (isDisabled) return; saveHistory(); setCurrentBowlerId(id); setShowBowlerSelect(false); if (!bowlerStats[id]) { setBowlerStats(prev => ({ ...prev, [id]: { playerId: id, runs: 0, balls: 0, wickets: 0 } })); } }} className={`w-full flex items-center justify-between p-3.5 rounded-xl border transition-all text-left ${isDisabled ? "border-slate-800/50 bg-slate-900/10 text-slate-600 cursor-not-allowed opacity-40" : "border-slate-800 bg-slate-900/30 text-white hover:border-emerald-500/30 hover:bg-emerald-500/5 cursor-pointer"}`}>
+                      <div className="flex items-center gap-2">
+                        <span className="text-sm font-semibold">{playersMap[id]?.name}</span>
+                        {isLastBowler && <span className="text-[9px] bg-rose-500/15 text-rose-400 px-1.5 py-0.5 rounded font-bold uppercase tracking-wider">Last Over</span>}
+                        {hasReachedLimit && <span className="text-[9px] bg-amber-500/15 text-amber-400 px-1.5 py-0.5 rounded font-bold uppercase tracking-wider">Limit Reached</span>}
+                      </div>
+                      <span className="text-[10px] text-slate-500">{bowlerStats[id] ? `${getOvers(bowlerStats[id].balls)}-${bowlerStats[id].runs}-${bowlerStats[id].wickets}` : '0.0-0-0'}</span>
+                    </button>
+                  );
+                })}
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+
+      <AnimatePresence>
+        {showNextBatsmanSelect && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="absolute inset-0 bg-black/75 backdrop-blur-md" />
+            <motion.div initial={{ opacity: 0, scale: 0.95, y: 15 }} animate={{ opacity: 1, scale: 1, y: 0 }} exit={{ opacity: 0, scale: 0.95, y: 15 }} className="relative w-full max-w-sm bg-slate-900 border border-slate-800 p-6 rounded-2xl shadow-2xl z-10 glass-card">
+              <h3 className="text-lg font-bold text-white mb-4 flex items-center gap-2"><UserPlus className="w-5 h-5 text-emerald-400" /> Select Next Batsman</h3>
+              <p className="text-xs text-slate-400 mb-4 font-light leading-relaxed">Wicket fell! Select the next batsman from {battingTeamName} to walk out onto the pitch.</p>
+              <div className="space-y-2 max-h-[250px] overflow-y-auto pr-1">
+                {(innings === 1 ? lineup.teamAPlayerIds : lineup.teamBPlayerIds).map((id) => {
+                  const isOut = batsmenStats[id]?.out;
+                  const isCurrent = id === strikerId || id === nonStrikerId;
+                  const isDisabled = isOut || isCurrent;
+                  return (
+                    <button key={id} disabled={isDisabled} onClick={() => { if (isDisabled) return; if (replacingSlot === "striker") { setStrikerId(id); } else { setNonStrikerId(id); } setBatsmenStats(prev => ({ ...prev, [id]: prev[id] || { playerId: id, runs: 0, balls: 0, fours: 0, sixes: 0, out: false } })); setShowNextBatsmanSelect(false); }} className={`w-full flex items-center justify-between p-3.5 rounded-xl border transition-all text-left ${isDisabled ? "border-slate-800/50 bg-slate-900/10 text-slate-600 cursor-not-allowed opacity-40" : "border-slate-800 bg-slate-900/30 text-white hover:border-emerald-500/30 hover:bg-emerald-500/5 cursor-pointer"}`}>
+                      <div className="flex items-center gap-2">
+                        <span className="text-sm font-semibold">{playersMap[id]?.name}</span>
+                        {isOut && <span className="text-[9px] bg-rose-500/15 text-rose-400 px-1.5 py-0.5 rounded font-bold uppercase tracking-wider">OUT</span>}
+                        {isCurrent && <span className="text-[9px] bg-emerald-500/15 text-emerald-400 px-1.5 py-0.5 rounded font-bold uppercase tracking-wider">Playing</span>}
+                      </div>
+                      <span className="text-[10px] text-slate-500 uppercase tracking-widest">{playersMap[id]?.role.replace("_", " ")}</span>
+                    </button>
+                  );
+                })}
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+
+      <AnimatePresence>
+        {showSettings && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="absolute inset-0 bg-black/75 backdrop-blur-md" onClick={() => setShowSettings(false)} />
+            <motion.div initial={{ opacity: 0, scale: 0.95, y: 15 }} animate={{ opacity: 1, scale: 1, y: 0 }} exit={{ opacity: 0, scale: 0.95, y: 15 }} className="relative w-full max-w-md bg-slate-900 border border-slate-800 p-6 rounded-2xl shadow-2xl z-10 glass-card max-h-[85vh] overflow-y-auto">
+              <h3 className="text-lg font-bold text-white mb-1 flex items-center gap-2"><Settings className="w-5 h-5 text-indigo-400" /> Match Settings</h3>
+              <p className="text-xs text-slate-400 mb-6">Change the current striker, non-striker, and bowler.</p>
+              <div className="space-y-2 mb-6"><label className="text-[10px] font-bold uppercase tracking-wider text-emerald-400 flex items-center gap-1.5"><Zap className="w-3 h-3" /> Striker (Facing)</label>
+                <div className="space-y-1.5 max-h-[140px] overflow-y-auto pr-1">
+                  {(innings === 1 ? lineup.teamAPlayerIds : lineup.teamBPlayerIds).map(id => {
+                    const isOut = batsmenStats[id]?.out && id !== strikerId;
+                    return (
+                      <button key={id} disabled={isOut} onClick={() => { if (isOut) return; if (id === nonStrikerId) { setNonStrikerId(strikerId); } setStrikerId(id); setBatsmenStats(prev => ({ ...prev, [id]: prev[id] || { playerId: id, runs: 0, balls: 0, fours: 0, sixes: 0, out: false } })); }} className={`w-full flex items-center justify-between p-3 rounded-xl border text-sm font-semibold text-left transition-all ${isOut ? "border-slate-800/50 bg-slate-900/10 text-slate-600 cursor-not-allowed opacity-40" : id === strikerId ? "bg-emerald-500/10 border-emerald-500/30 text-emerald-400" : "bg-slate-900/30 border-slate-800 text-slate-300 hover:border-slate-700 cursor-pointer"}`}>
+                        <div className="flex items-center gap-2"><span>{playersMap[id]?.name}</span>{isOut && <span className="text-[9px] bg-rose-500/15 text-rose-400 px-1.5 py-0.5 rounded font-bold uppercase tracking-wider">OUT</span>}</div>
+                        {id === strikerId && <Check className="w-4 h-4 text-emerald-400" />}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+              <div className="space-y-2 mb-6"><label className="text-[10px] font-bold uppercase tracking-wider text-indigo-400 flex items-center gap-1.5"><UserPlus className="w-3 h-3" /> Non-Striker</label>
+                <div className="space-y-1.5 max-h-[140px] overflow-y-auto pr-1">
+                  {(innings === 1 ? lineup.teamAPlayerIds : lineup.teamBPlayerIds).map(id => {
+                    const isOut = batsmenStats[id]?.out && id !== nonStrikerId;
+                    return (
+                      <button key={id} disabled={isOut} onClick={() => { if (isOut) return; if (id === strikerId) { setStrikerId(nonStrikerId); } setNonStrikerId(id); setBatsmenStats(prev => ({ ...prev, [id]: prev[id] || { playerId: id, runs: 0, balls: 0, fours: 0, sixes: 0, out: false } })); }} className={`w-full flex items-center justify-between p-3 rounded-xl border text-sm font-semibold text-left transition-all ${isOut ? "border-slate-800/50 bg-slate-900/10 text-slate-600 cursor-not-allowed opacity-40" : id === nonStrikerId ? "bg-indigo-500/10 border-indigo-500/30 text-indigo-400" : "bg-slate-900/30 border-slate-800 text-slate-300 hover:border-slate-700 cursor-pointer"}`}>
+                        <div className="flex items-center gap-2"><span>{playersMap[id]?.name}</span>{isOut && <span className="text-[9px] bg-rose-500/15 text-rose-400 px-1.5 py-0.5 rounded font-bold uppercase tracking-wider">OUT</span>}</div>
+                        {id === nonStrikerId && <Check className="w-4 h-4 text-indigo-400" />}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+              <div className="space-y-2 mb-6"><label className="text-[10px] font-bold uppercase tracking-wider text-amber-400 flex items-center gap-1.5"><Target className="w-3 h-3" /> Current Bowler</label>
+                <div className="space-y-1.5 max-h-[140px] overflow-y-auto pr-1">
+                  {(innings === 1 ? (lineup.teamABatsFirst ? lineup.teamBPlayerIds : lineup.teamAPlayerIds) : (lineup.teamABatsFirst ? lineup.teamAPlayerIds : lineup.teamBPlayerIds)).map(id => {
                     const isLastBowler = id === lastBowlerId;
                     const oversDone = bowlerStats[id] ? Math.floor(bowlerStats[id].balls / 6) : 0;
                     const hasReachedLimit = lineup.bowlerLimit > 0 && oversDone >= lineup.bowlerLimit;
                     const isDisabled = isLastBowler || hasReachedLimit;
-
                     return (
-                      <button
-                        key={id}
-                        disabled={isDisabled}
-                        onClick={() => {
-                          if (isDisabled) return;
-                          saveHistory();
-                          setCurrentBowlerId(id);
-                          if (!bowlerStats[id]) {
-                            setBowlerStats(prev => ({
-                              ...prev,
-                              [id]: { playerId: id, runs: 0, balls: 0, wickets: 0 }
-                            }));
-                          }
-                          setShowBowlerSelect(false);
-                        }}
-                        className={`w-full flex items-center justify-between p-3.5 rounded-xl border transition-all text-left ${
-                          isDisabled
-                            ? "border-slate-800/50 bg-slate-900/10 text-slate-600 cursor-not-allowed opacity-40"
-                            : "border-slate-800 bg-slate-900/30 text-white hover:border-emerald-500/30 hover:bg-emerald-500/5 cursor-pointer"
-                        }`}
-                      >
-                        <div className="flex items-center gap-2">
-                          <span className="text-sm font-semibold">{playersMap[id]?.name}</span>
-                          {isLastBowler && (
-                            <span className="text-[9px] bg-rose-500/15 text-rose-400 px-1.5 py-0.5 rounded font-bold uppercase tracking-wider">
-                              Last Over
-                            </span>
-                          )}
-                          {hasReachedLimit && (
-                            <span className="text-[9px] bg-amber-500/15 text-amber-400 px-1.5 py-0.5 rounded font-bold uppercase tracking-wider">
-                              Limit Reached
-                            </span>
-                          )}
-                        </div>
-                        <span className="text-[10px] text-slate-500">
-                          {bowlerStats[id] ? `${getOvers(bowlerStats[id].balls)}-${bowlerStats[id].runs}-${bowlerStats[id].wickets}` : '0.0-0-0'}
-                        </span>
+                      <button key={id} disabled={isDisabled} onClick={() => { if (isDisabled) return; saveHistory(); setCurrentBowlerId(id); if (!bowlerStats[id]) { setBowlerStats(prev => ({ ...prev, [id]: { playerId: id, runs: 0, balls: 0, wickets: 0 } })); } }} className={`w-full flex items-center justify-between p-3 rounded-xl border text-sm font-semibold text-left transition-all ${isDisabled ? "border-slate-800/50 bg-slate-900/10 text-slate-600 cursor-not-allowed opacity-40" : id === currentBowlerId ? "bg-amber-500/10 border-amber-500/30 text-amber-400" : "bg-slate-900/30 border-slate-800 text-slate-300 hover:border-slate-700 cursor-pointer"}`}>
+                        <div className="flex items-center gap-2"><span>{playersMap[id]?.name}</span>{isLastBowler && <span className="text-[9px] bg-rose-500/15 text-rose-400 px-1.5 py-0.5 rounded font-bold uppercase tracking-wider">Last Over</span>} {hasReachedLimit && <span className="text-[9px] bg-amber-500/15 text-amber-400 px-1.5 py-0.5 rounded font-bold uppercase tracking-wider">Limit Reached</span>}</div>
+                        <div className="flex items-center gap-2">{bowlerStats[id] && <span className="text-[10px] text-slate-500">{getOvers(bowlerStats[id].balls)}-{bowlerStats[id].runs}-{bowlerStats[id].wickets}</span>}{id === currentBowlerId && <Check className="w-4 h-4 text-amber-400" />}</div>
                       </button>
                     );
                   })}
+                </div>
               </div>
+              <button onClick={() => setShowSettings(false)} className="w-full h-12 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-bold text-sm cursor-pointer shadow-lg transition-all active:scale-[0.98]">Done</button>
             </motion.div>
           </div>
         )}
       </AnimatePresence>
 
-      {/* 3. Next Batsman Selection Modal */}
-      <AnimatePresence>
-        {showNextBatsmanSelect && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-            <motion.div 
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-              className="absolute inset-0 bg-black/75 backdrop-blur-md"
-            />
-            <motion.div 
-              initial={{ opacity: 0, scale: 0.95, y: 15 }}
-              animate={{ opacity: 1, scale: 1, y: 0 }}
-              exit={{ opacity: 0, scale: 0.95, y: 15 }}
-              className="relative w-full max-w-sm bg-slate-900 border border-slate-800 p-6 rounded-2xl shadow-2xl z-10 glass-card"
-            >
-              <h3 className="text-lg font-bold text-white mb-4 flex items-center gap-2">
-                <UserPlus className="w-5 h-5 text-emerald-400" /> Select Next Batsman
-              </h3>
-              <p className="text-xs text-slate-400 mb-4 font-light leading-relaxed">
-                Wicket fell! Select the next batsman from {battingTeamName} to walk out onto the pitch.
-              </p>
-              <div className="space-y-2 max-h-[250px] overflow-y-auto pr-1">
-                {(innings === 1 ? lineup.teamAPlayerIds : lineup.teamBPlayerIds)
-                  .map((id) => {
-                    const isOut = batsmenStats[id]?.out;
-                    const isCurrent = id === strikerId || id === nonStrikerId;
-                    const isDisabled = isOut || isCurrent;
-                    
-                    return (
-                      <button
-                        key={id}
-                        disabled={isDisabled}
-                        onClick={() => {
-                          if (isDisabled) return;
-                          if (replacingSlot === "striker") {
-                            setStrikerId(id);
-                          } else {
-                            setNonStrikerId(id);
-                          }
-                          
-                          setBatsmenStats(prev => ({
-                            ...prev,
-                            [id]: prev[id] || { playerId: id, runs: 0, balls: 0, fours: 0, sixes: 0, out: false }
-                          }));
-                          
-                          setShowNextBatsmanSelect(false);
-                        }}
-                        className={`w-full flex items-center justify-between p-3.5 rounded-xl border transition-all text-left ${
-                          isDisabled
-                            ? "border-slate-800/50 bg-slate-900/10 text-slate-600 cursor-not-allowed opacity-40"
-                            : "border-slate-800 bg-slate-900/30 text-white hover:border-emerald-500/30 hover:bg-emerald-500/5 cursor-pointer"
-                        }`}
-                      >
-                        <div className="flex items-center gap-2">
-                          <span className="text-sm font-semibold">{playersMap[id]?.name}</span>
-                          {isOut && (
-                            <span className="text-[9px] bg-rose-500/15 text-rose-400 px-1.5 py-0.5 rounded font-bold uppercase tracking-wider">
-                              OUT
-                            </span>
-                          )}
-                          {isCurrent && (
-                            <span className="text-[9px] bg-emerald-500/15 text-emerald-400 px-1.5 py-0.5 rounded font-bold uppercase tracking-wider">
-                              Playing
-                            </span>
-                          )}
-                        </div>
-                        <span className="text-[10px] text-slate-500 uppercase tracking-widest">
-                          {playersMap[id]?.role === "all_rounder" ? "All-Rounder" : playersMap[id]?.role === "batsman" ? "Batsman" : "Bowler"}
-                        </span>
-                      </button>
-                    );
-                  })}
-              </div>
-            </motion.div>
-          </div>
-        )}
-      </AnimatePresence>
-
-      {/* 4. Unified Settings Modal — Change Striker, Non-Striker, Bowler */}
-      <AnimatePresence>
-        {showSettings && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-            <motion.div 
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-              className="absolute inset-0 bg-black/75 backdrop-blur-md"
-              onClick={() => setShowSettings(false)}
-            />
-            <motion.div 
-              initial={{ opacity: 0, scale: 0.95, y: 15 }}
-              animate={{ opacity: 1, scale: 1, y: 0 }}
-              exit={{ opacity: 0, scale: 0.95, y: 15 }}
-              className="relative w-full max-w-md bg-slate-900 border border-slate-800 p-6 rounded-2xl shadow-2xl z-10 glass-card max-h-[85vh] overflow-y-auto"
-            >
-              <h3 className="text-lg font-bold text-white mb-1 flex items-center gap-2">
-                <Settings className="w-5 h-5 text-indigo-400" /> Match Settings
-              </h3>
-              <p className="text-xs text-slate-400 mb-6">Change the current striker, non-striker, and bowler.</p>
-
-              {/* Striker Selection */}
-              <div className="space-y-2 mb-6">
-                <label className="text-[10px] font-bold uppercase tracking-wider text-emerald-400 flex items-center gap-1.5">
-                  <Zap className="w-3 h-3" /> Striker (Facing)
-                </label>
-                <div className="space-y-1.5 max-h-[140px] overflow-y-auto pr-1">
-                  {(innings === 1 ? lineup.teamAPlayerIds : lineup.teamBPlayerIds)
-                    .map(id => {
-                      const isOut = batsmenStats[id]?.out && id !== strikerId;
-                      return (
-                        <button
-                          key={id}
-                          disabled={isOut}
-                          onClick={() => {
-                            if (isOut) return;
-                            if (id === nonStrikerId) {
-                              setNonStrikerId(strikerId);
-                            }
-                            setStrikerId(id);
-                            setBatsmenStats(prev => ({
-                              ...prev,
-                              [id]: prev[id] || { playerId: id, runs: 0, balls: 0, fours: 0, sixes: 0, out: false }
-                            }));
-                          }}
-                          className={`w-full flex items-center justify-between p-3 rounded-xl border text-sm font-semibold text-left transition-all ${
-                            isOut
-                              ? "border-slate-800/50 bg-slate-900/10 text-slate-600 cursor-not-allowed opacity-40"
-                              : id === strikerId 
-                                ? "bg-emerald-500/10 border-emerald-500/30 text-emerald-400" 
-                                : "bg-slate-900/30 border-slate-800 text-slate-300 hover:border-slate-700 cursor-pointer"
-                          }`}
-                        >
-                          <div className="flex items-center gap-2">
-                            <span>{playersMap[id]?.name}</span>
-                            {isOut && (
-                              <span className="text-[9px] bg-rose-500/15 text-rose-400 px-1.5 py-0.5 rounded font-bold uppercase tracking-wider">
-                                OUT
-                              </span>
-                            )}
-                          </div>
-                          {id === strikerId && <Check className="w-4 h-4 text-emerald-400" />}
-                        </button>
-                      );
-                    })}
-                </div>
-              </div>
-
-              {/* Non-Striker Selection */}
-              <div className="space-y-2 mb-6">
-                <label className="text-[10px] font-bold uppercase tracking-wider text-indigo-400 flex items-center gap-1.5">
-                  <UserPlus className="w-3 h-3" /> Non-Striker
-                </label>
-                <div className="space-y-1.5 max-h-[140px] overflow-y-auto pr-1">
-                  {(innings === 1 ? lineup.teamAPlayerIds : lineup.teamBPlayerIds)
-                    .map(id => {
-                      const isOut = batsmenStats[id]?.out && id !== nonStrikerId;
-                      return (
-                        <button
-                          key={id}
-                          disabled={isOut}
-                          onClick={() => {
-                            if (isOut) return;
-                            if (id === strikerId) {
-                              setStrikerId(nonStrikerId);
-                            }
-                            setNonStrikerId(id);
-                            setBatsmenStats(prev => ({
-                              ...prev,
-                              [id]: prev[id] || { playerId: id, runs: 0, balls: 0, fours: 0, sixes: 0, out: false }
-                            }));
-                          }}
-                          className={`w-full flex items-center justify-between p-3 rounded-xl border text-sm font-semibold text-left transition-all ${
-                            isOut
-                              ? "border-slate-800/50 bg-slate-900/10 text-slate-600 cursor-not-allowed opacity-40"
-                              : id === nonStrikerId 
-                                ? "bg-indigo-500/10 border-indigo-500/30 text-indigo-400" 
-                                : "bg-slate-900/30 border-slate-800 text-slate-300 hover:border-slate-700 cursor-pointer"
-                          }`}
-                        >
-                          <div className="flex items-center gap-2">
-                            <span>{playersMap[id]?.name}</span>
-                            {isOut && (
-                              <span className="text-[9px] bg-rose-500/15 text-rose-400 px-1.5 py-0.5 rounded font-bold uppercase tracking-wider">
-                                OUT
-                              </span>
-                            )}
-                          </div>
-                          {id === nonStrikerId && <Check className="w-4 h-4 text-indigo-400" />}
-                        </button>
-                      );
-                    })}
-                </div>
-              </div>
-
-              {/* Bowler Selection */}
-              <div className="space-y-2 mb-6">
-                <label className="text-[10px] font-bold uppercase tracking-wider text-amber-400 flex items-center gap-1.5">
-                  <Target className="w-3 h-3" /> Current Bowler
-                </label>
-                <div className="space-y-1.5 max-h-[140px] overflow-y-auto pr-1">
-                  {(innings === 1 ? (lineup.teamABatsFirst ? lineup.teamBPlayerIds : lineup.teamAPlayerIds) : (lineup.teamABatsFirst ? lineup.teamAPlayerIds : lineup.teamBPlayerIds))
-                    .map(id => {
-                      const isLastBowler = id === lastBowlerId;
-                      const oversDone = bowlerStats[id] ? Math.floor(bowlerStats[id].balls / 6) : 0;
-                      const hasReachedLimit = lineup.bowlerLimit > 0 && oversDone >= lineup.bowlerLimit;
-                      const isDisabled = isLastBowler || hasReachedLimit;
-                      
-                      return (
-                        <button
-                          key={id}
-                          disabled={isDisabled}
-                          onClick={() => {
-                            if (isDisabled) return;
-                            saveHistory();
-                            setCurrentBowlerId(id);
-                            if (!bowlerStats[id]) {
-                              setBowlerStats(prev => ({
-                                ...prev,
-                                [id]: { playerId: id, runs: 0, balls: 0, wickets: 0 }
-                              }));
-                            }
-                          }}
-                          className={`w-full flex items-center justify-between p-3 rounded-xl border text-sm font-semibold text-left transition-all ${
-                            isDisabled
-                              ? "border-slate-800/50 bg-slate-900/10 text-slate-600 cursor-not-allowed opacity-40"
-                              : id === currentBowlerId 
-                                ? "bg-amber-500/10 border-amber-500/30 text-amber-400" 
-                                : "bg-slate-900/30 border-slate-800 text-slate-300 hover:border-slate-700 cursor-pointer"
-                          }`}
-                        >
-                          <div className="flex items-center gap-2">
-                            <span>{playersMap[id]?.name}</span>
-                            {isLastBowler && (
-                              <span className="text-[9px] bg-rose-500/15 text-rose-400 px-1.5 py-0.5 rounded font-bold uppercase tracking-wider">
-                                Last Over
-                              </span>
-                            )}
-                            {hasReachedLimit && (
-                              <span className="text-[9px] bg-amber-500/15 text-amber-400 px-1.5 py-0.5 rounded font-bold uppercase tracking-wider">
-                                Limit Reached
-                              </span>
-                            )}
-                          </div>
-                          <div className="flex items-center gap-2">
-                            {bowlerStats[id] && (
-                              <span className="text-[10px] text-slate-500">
-                                {getOvers(bowlerStats[id].balls)}-{bowlerStats[id].runs}-{bowlerStats[id].wickets}
-                              </span>
-                            )}
-                            {id === currentBowlerId && <Check className="w-4 h-4 text-amber-400" />}
-                          </div>
-                        </button>
-                      );
-                    })}
-                </div>
-              </div>
-
-              <button
-                onClick={() => setShowSettings(false)}
-                className="w-full h-12 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-bold text-sm cursor-pointer shadow-lg transition-all active:scale-[0.98]"
-              >
-                Done
-              </button>
-            </motion.div>
-          </div>
-        )}
-      </AnimatePresence>
-      {/* 5. Extra Runs Selection Modal */}
       <AnimatePresence>
         {showExtraType && (
           <div className="fixed inset-0 z-[60] flex items-center justify-center p-4">
-            <motion.div 
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-              className="absolute inset-0 bg-black/80 backdrop-blur-sm"
-              onClick={() => setShowExtraType(null)}
-            />
-            <motion.div 
-              initial={{ opacity: 0, scale: 0.9, y: 20 }}
-              animate={{ opacity: 1, scale: 1, y: 0 }}
-              exit={{ opacity: 0, scale: 0.9, y: 20 }}
-              className="relative w-full max-w-xs bg-slate-900 border border-amber-500/30 p-6 rounded-2xl shadow-2xl z-10 glass-card"
-            >
-              <h3 className="text-base font-bold text-amber-400 mb-4 flex items-center gap-2">
-                <Plus className="w-5 h-5" /> {showExtraType === "wide" ? "Wide Ball" : showExtraType === "noball" ? "No Ball" : "Bye"} Runs
-              </h3>
-              <p className="text-[10px] text-slate-400 mb-6 font-medium uppercase tracking-widest">
-                Select runs scored ({showExtraType === "bye" ? "1-4" : "0-4"}):
-              </p>
-              
+            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="absolute inset-0 bg-black/80 backdrop-blur-sm" onClick={() => setShowExtraType(null)} />
+            <motion.div initial={{ opacity: 0, scale: 0.9, y: 20 }} animate={{ opacity: 1, scale: 1, y: 0 }} exit={{ opacity: 0, scale: 0.9, y: 20 }} className="relative w-full max-w-xs bg-slate-900 border border-amber-500/30 p-6 rounded-2xl shadow-2xl z-10 glass-card">
+              <h3 className="text-base font-bold text-amber-400 mb-4 flex items-center gap-2"><Plus className="w-5 h-5" /> {showExtraType === "wide" ? "Wide Ball" : showExtraType === "noball" ? "No Ball" : "Bye"} Runs</h3>
+              <p className="text-[10px] text-slate-400 mb-6 font-medium uppercase tracking-widest">Select runs scored ({showExtraType === "bye" ? "1-4" : "0-4"}):</p>
               <div className="grid grid-cols-3 gap-3">
                 {(showExtraType === "bye" ? [1, 2, 3, 4] : [0, 1, 2, 3, 4]).map((r) => (
-                  <button
-                    key={r}
-                    onClick={() => {
-                      handleScoreBall(r, showExtraType);
-                      setShowExtraType(null);
-                    }}
-                    className={`h-16 rounded-xl border border-amber-500/20 bg-slate-950 text-amber-300 hover:bg-amber-500/10 transition-all font-black text-lg cursor-pointer active:scale-95 flex flex-col items-center justify-center ${r === 0 ? 'col-span-1' : ''}`}
-                  >
-                    <span>{r}</span>
-                    <span className="text-[8px] font-bold text-amber-500/40 mt-1">
-                      {showExtraType === "bye" ? `${r} Run${r !== 1 ? 's' : ''}` : `Total ${r + 1}`}
-                    </span>
+                  <button key={r} onClick={() => { handleScoreBall(r, showExtraType); setShowExtraType(null); }} className={`h-16 rounded-xl border border-amber-500/20 bg-slate-950 text-amber-300 hover:bg-amber-500/10 transition-all font-black text-lg cursor-pointer active:scale-95 flex flex-col items-center justify-center ${r === 0 ? 'col-span-1' : ''}`}>
+                    <span>{r}</span><span className="text-[8px] font-bold text-amber-500/40 mt-1">{showExtraType === "bye" ? `${r} Run${r !== 1 ? 's' : ''}` : `Total ${r + 1}`}</span>
                   </button>
                 ))}
-                <button
-                  onClick={() => setShowExtraType(null)}
-                  className="col-span-1 h-16 rounded-xl border border-slate-800 bg-slate-900 text-slate-500 hover:text-slate-300 font-bold text-xs cursor-pointer active:scale-95"
-                >
-                  Cancel
-                </button>
+                <button onClick={() => setShowExtraType(null)} className="col-span-1 h-16 rounded-xl border border-slate-800 bg-slate-900 text-slate-500 hover:text-slate-300 font-bold text-xs cursor-pointer active:scale-95">Cancel</button>
               </div>
             </motion.div>
           </div>
