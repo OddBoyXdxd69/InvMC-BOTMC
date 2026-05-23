@@ -20,6 +20,9 @@ interface PlayerData {
     balls_bowled: number;
     highest_score?: string;
     best_bowling?: string;
+    batting_avg?: string;
+    bowling_avg?: string;
+    dot_balls_bowled?: number;
   };
   match_history: Array<{
     id: number;
@@ -48,6 +51,12 @@ export default function PlayerProfilePage({ params }: { params: Promise<{ id: st
 
   const [data, setData] = useState<PlayerData | null>(null);
   const [loading, setLoading] = useState(true);
+
+  const getOvers = (ballsCount: number) => {
+    const oversCount = Math.floor(ballsCount / 6);
+    const remainingBalls = ballsCount % 6;
+    return `${oversCount}.${remainingBalls}`;
+  };
 
   useEffect(() => {
     fetch(`/api/players/${playerId}`)
