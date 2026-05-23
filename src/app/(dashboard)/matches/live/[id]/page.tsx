@@ -467,16 +467,16 @@ export default function LiveScorerPage({ params }: { params: Promise<{ id: strin
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-        <section className="md:col-span-2 p-6 sm:p-8 rounded-3xl border border-slate-900 glass-card shadow-xl relative overflow-hidden flex flex-col justify-between">
-          <div className="flex justify-between items-start">
+        <section className="md:col-span-2 p-5 sm:p-8 rounded-3xl border border-slate-900 glass-card shadow-xl relative overflow-hidden flex flex-col justify-between">
+          <div className="flex justify-between items-start gap-4">
             <div>
               <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest">{battingTeamName} batting</p>
-              <h2 className="text-6xl sm:text-7xl font-black text-white tracking-tighter mt-2">{score} <span className="text-3xl text-slate-600 font-light">/ {wickets}</span></h2>
+              <h2 className="text-5xl sm:text-6xl md:text-7xl font-black text-white tracking-tighter mt-2">{score} <span className="text-2xl sm:text-3xl text-slate-600 font-light">/ {wickets}</span></h2>
               {innings === 2 && <div className="mt-4 px-4 py-2 rounded-xl bg-indigo-500/10 border border-indigo-500/20 inline-block"><p className="text-xs font-black text-indigo-400 uppercase">{battingTeamName} need {requiredRuns} in {remBalls} balls</p></div>}
             </div>
             <div className="text-right">
               <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Overs</p>
-              <h3 className="text-4xl sm:text-5xl font-black text-white tracking-tighter mt-2">{getOvers(balls)} <span className="text-base font-bold text-slate-700">/ {lineup.oversLimit}</span></h3>
+              <h3 className="text-3xl sm:text-4xl md:text-5xl font-black text-white tracking-tighter mt-2">{getOvers(balls)} <span className="text-sm sm:text-base font-bold text-slate-700">/ {lineup.oversLimit}</span></h3>
               {innings === 1 && projectedScore !== null && <p className="text-[10px] font-black text-slate-500 uppercase mt-4">Proj. Score: <span className="text-emerald-400 text-sm ml-1">{projectedScore}</span></p>}
               {innings === 2 && winProb !== null && <p className="text-[10px] font-black text-slate-500 uppercase mt-4">Win Prob: <span className="text-indigo-400 text-sm ml-1">{winProb}%</span></p>}
             </div>
@@ -498,65 +498,146 @@ export default function LiveScorerPage({ params }: { params: Promise<{ id: strin
           </div>
         </section>
 
-        <section className="p-6 rounded-3xl border border-slate-900 glass-card shadow-xl space-y-6">
+        <section className="p-5 sm:p-6 rounded-3xl border border-slate-900 glass-card shadow-xl space-y-6">
           <div className="flex items-center justify-between border-b border-slate-900 pb-2">
             <h3 className="text-[10px] font-black text-slate-500 uppercase tracking-[0.2em]">Active Field</h3>
-            <button onClick={() => { saveHistory(); swapStriker(); }} className="flex items-center gap-1.5 px-2 py-1 rounded-lg bg-indigo-500/10 text-indigo-400 text-[9px] font-black uppercase"><RefreshCw className="w-3 h-3" /> Swap</button>
+            <button onClick={() => { saveHistory(); swapStriker(); }} className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-indigo-500/10 border border-indigo-500/20 text-indigo-400 text-[10px] font-black uppercase hover:bg-indigo-500/20 transition-all cursor-pointer"><RefreshCw className="w-3.5 h-3.5" /> Swap</button>
           </div>
           <div className="space-y-4">
-            <div className="space-y-2">
+            <div className="space-y-2.5">
               {strikerId && batsmenStats[strikerId] && (
-                <div onClick={() => setShowSettings(true)} className="flex justify-between items-center p-3 rounded-2xl bg-emerald-500/5 border border-emerald-500/20 cursor-pointer">
-                  <span className="text-sm font-black text-emerald-400 flex items-center gap-2"><Zap className="w-3.5 h-3.5 fill-emerald-500 animate-pulse" /> {playersMap[strikerId]?.name}*</span>
-                  <div className="text-right"><p className="text-sm font-black text-emerald-400">{batsmenStats[strikerId].runs}({batsmenStats[strikerId].balls})</p><p className="text-[8px] font-black text-emerald-500/50 uppercase">SR: {getStrikeRate(batsmenStats[strikerId].runs, batsmenStats[strikerId].balls)}</p></div>
+                <div onClick={() => setShowSettings(true)} className="flex justify-between items-center p-3.5 rounded-2xl bg-emerald-500/5 border border-emerald-500/20 hover:bg-emerald-500/10 transition-all cursor-pointer group">
+                  <span className="text-sm font-black text-emerald-400 flex items-center gap-2">
+                    <Zap className="w-4 h-4 fill-emerald-500 animate-pulse text-emerald-400" />
+                    <span>{playersMap[strikerId]?.name}*</span>
+                    <Edit3 className="w-3 h-3 text-emerald-500/40 opacity-0 group-hover:opacity-100 transition-opacity" />
+                  </span>
+                  <div className="text-right">
+                    <p className="text-sm font-black text-emerald-400">{batsmenStats[strikerId].runs}({batsmenStats[strikerId].balls})</p>
+                    <p className="text-[8px] font-black text-emerald-500/50 uppercase tracking-wider mt-0.5">SR: {getStrikeRate(batsmenStats[strikerId].runs, batsmenStats[strikerId].balls)}</p>
+                  </div>
                 </div>
               )}
               {nonStrikerId && batsmenStats[nonStrikerId] && (
-                <div onClick={() => setShowSettings(true)} className="flex justify-between items-center p-3 rounded-2xl bg-slate-900/40 border border-slate-800 cursor-pointer">
-                  <span className="text-sm font-bold text-slate-300">{playersMap[nonStrikerId]?.name}</span>
-                  <div className="text-right"><p className="text-sm font-black text-slate-400">{batsmenStats[nonStrikerId].runs}({batsmenStats[nonStrikerId].balls})</p><p className="text-[8px] font-black text-slate-500/50 uppercase">SR: {getStrikeRate(batsmenStats[nonStrikerId].runs, batsmenStats[nonStrikerId].balls)}</p></div>
+                <div onClick={() => setShowSettings(true)} className="flex justify-between items-center p-3.5 rounded-2xl bg-slate-900/40 border border-slate-800 hover:bg-slate-900/60 transition-all cursor-pointer group">
+                  <span className="text-sm font-bold text-slate-300 flex items-center gap-2">
+                    <span className="w-4 h-4" /> {/* align with striker icon */}
+                    <span>{playersMap[nonStrikerId]?.name}</span>
+                    <Edit3 className="w-3 h-3 text-slate-500/40 opacity-0 group-hover:opacity-100 transition-opacity" />
+                  </span>
+                  <div className="text-right">
+                    <p className="text-sm font-black text-slate-400">{batsmenStats[nonStrikerId].runs}({batsmenStats[nonStrikerId].balls})</p>
+                    <p className="text-[8px] font-black text-slate-500/50 uppercase tracking-wider mt-0.5">SR: {getStrikeRate(batsmenStats[nonStrikerId].runs, batsmenStats[nonStrikerId].balls)}</p>
+                  </div>
                 </div>
               )}
             </div>
             {currentBowlerId && bowlerStats[currentBowlerId] && (
-              <div onClick={() => setShowBowlerSelect(true)} className="flex justify-between items-center p-3 rounded-2xl bg-slate-900/40 border border-slate-800 cursor-pointer pt-2 border-t border-slate-900/60">
-                <span className="text-sm font-bold text-white">{playersMap[currentBowlerId]?.name}</span>
-                <div className="text-right"><p className="text-sm font-black text-slate-300">{getOvers(bowlerStats[currentBowlerId].balls)}-{bowlerStats[currentBowlerId].runs}-{bowlerStats[currentBowlerId].wickets}</p><p className="text-[8px] font-black text-slate-500/50 uppercase">Econ: {getEconomy(bowlerStats[currentBowlerId].runs, bowlerStats[currentBowlerId].balls)}</p></div>
+              <div onClick={() => setShowBowlerSelect(true)} className="flex justify-between items-center p-3.5 rounded-2xl bg-slate-900/40 border border-slate-800 hover:bg-slate-900/60 transition-all cursor-pointer pt-2.5 border-t border-slate-900/60 group">
+                <span className="text-sm font-bold text-white flex items-center gap-2">
+                  <Target className="w-4 h-4 text-slate-400" />
+                  <span>{playersMap[currentBowlerId]?.name}</span>
+                  <Edit3 className="w-3 h-3 text-slate-500/40 opacity-0 group-hover:opacity-100 transition-opacity" />
+                </span>
+                <div className="text-right">
+                  <p className="text-sm font-black text-slate-300">{getOvers(bowlerStats[currentBowlerId].balls)}-{bowlerStats[currentBowlerId].runs}-{bowlerStats[currentBowlerId].wickets}</p>
+                  <p className="text-[8px] font-black text-slate-500/50 uppercase tracking-wider mt-0.5">Econ: {getEconomy(bowlerStats[currentBowlerId].runs, bowlerStats[currentBowlerId].balls)}</p>
+                </div>
               </div>
             )}
           </div>
         </section>
       </div>
 
-      <div className="p-4 rounded-xl border border-slate-900 bg-slate-900/20 flex items-center justify-between gap-4">
-        <span className="text-[10px] font-black text-slate-600 uppercase tracking-widest">This Over:</span>
-        <div className="flex flex-wrap gap-1.5 flex-1 justify-end">
+      <div className="p-4 rounded-xl border border-slate-900 bg-slate-900/20 flex items-center justify-between gap-4 overflow-hidden select-none">
+        <span className="text-[10px] font-black text-slate-600 uppercase tracking-widest shrink-0">This Over:</span>
+        <div className="flex gap-1.5 overflow-x-auto scrollbar-none py-1 justify-end flex-1 scroll-smooth">
           {overHistory.length > 0 ? overHistory.map((sym, i) => (
-            <span key={i} className={`w-8 h-8 rounded-full flex items-center justify-center text-[10px] font-black border ${sym === "W" || sym.includes("W") ? "bg-rose-500/20 border-rose-500/40 text-rose-400" : sym.includes("Wd") || sym.includes("Nb") ? "bg-amber-500/20 border-amber-500/40 text-amber-400" : sym === "4" || sym === "6" ? "bg-emerald-500/25 border-emerald-500/50 text-emerald-400 scale-110" : "bg-slate-900 border-slate-800 text-slate-500"}`}>{sym}</span>
+            <span key={i} className={`w-8 h-8 rounded-full flex items-center justify-center text-[10px] font-black border shrink-0 ${sym === "W" || sym.includes("W") ? "bg-rose-500/20 border-rose-500/40 text-rose-400" : sym.includes("Wd") || sym.includes("Nb") ? "bg-amber-500/20 border-amber-500/40 text-amber-400" : sym === "4" || sym === "6" ? "bg-emerald-500/25 border-emerald-500/50 text-emerald-400 scale-110" : "bg-slate-900 border-slate-800 text-slate-500"}`}>{sym}</span>
           )) : <span className="text-xs text-slate-700 italic">Waiting...</span>}
         </div>
       </div>
 
       <div className={`grid grid-cols-1 md:grid-cols-3 gap-6 ${isSuspended ? "opacity-30 pointer-events-none" : ""}`}>
-        <section className="md:col-span-2 p-6 rounded-3xl border border-slate-900 glass-card space-y-4 shadow-xl">
-          <h3 className="text-[10px] font-black text-slate-500 uppercase tracking-widest border-b border-slate-900 pb-2">Runs Pad</h3>
-          <div className="grid grid-cols-5 gap-3">
-            {[0, 1, 2, 3, 4].map((r) => (
-              <button key={r} onClick={() => handleScoreBall(r)} className={`h-16 rounded-2xl border font-black text-xl transition-all cursor-pointer flex flex-col items-center justify-center ${r === 4 ? "bg-emerald-500/10 border-emerald-500/30 text-emerald-400 shadow-[0_0_15px_rgba(16,185,129,0.1)]" : "bg-slate-900/50 border-slate-800 text-white"}`}>
-                <span>{r}</span><span className="text-[8px] font-black text-slate-600 uppercase tracking-widest mt-1">{r === 4 ? 'FOUR' : 'Runs'}</span>
-              </button>
+        <section className="md:col-span-2 p-5 sm:p-6 rounded-3xl border border-slate-900 glass-card space-y-4 shadow-xl select-none">
+          <div className="flex justify-between items-center border-b border-slate-900 pb-2">
+            <h3 className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Tactile Runs Pad</h3>
+            <span className="text-[8px] font-bold text-slate-500 uppercase tracking-wider hidden sm:inline">Tap value to record ball</span>
+          </div>
+          
+          <div className="grid grid-cols-4 gap-2.5">
+            {/* Row 1: 0, 1, 2, 3 */}
+            {[0, 1, 2, 3].map((r) => (
+              <motion.button 
+                key={r} 
+                whileTap={{ scale: 0.95 }}
+                onClick={() => handleScoreBall(r)} 
+                className={`h-16 sm:h-20 rounded-2xl border font-black transition-all cursor-pointer flex flex-col items-center justify-center select-none ${
+                  r === 0 
+                    ? "bg-slate-950/60 border-slate-900 text-slate-400 hover:border-slate-800" 
+                    : "bg-slate-900/40 border-slate-800 text-slate-200 hover:border-slate-700"
+                }`}
+              >
+                <span className="text-xl sm:text-2xl">{r}</span>
+                <span className="text-[7px] sm:text-[8px] font-black text-slate-500 uppercase tracking-wider mt-0.5">
+                  {r === 0 ? 'DOT' : r === 1 ? 'SINGLE' : r === 2 ? 'DOUBLE' : 'TRIPLE'}
+                </span>
+              </motion.button>
             ))}
+
+            {/* Row 2: 4, 6, 5, Quick Undo */}
+            {/* Four */}
+            <motion.button 
+              whileTap={{ scale: 0.95 }}
+              onClick={() => handleScoreBall(4)} 
+              className="h-16 sm:h-20 rounded-2xl border font-black transition-all cursor-pointer flex flex-col items-center justify-center bg-emerald-500/10 border-emerald-500/30 text-emerald-400 shadow-[0_0_15px_rgba(16,185,129,0.08)] hover:bg-emerald-500/20 select-none"
+            >
+              <span className="text-xl sm:text-2xl">4</span>
+              <span className="text-[7px] sm:text-[8px] font-black text-emerald-500/70 uppercase tracking-widest mt-0.5">FOUR</span>
+            </motion.button>
+
+            {/* Six */}
+            <motion.button 
+              whileTap={{ scale: 0.95 }}
+              onClick={() => handleScoreBall(6)} 
+              className="h-16 sm:h-20 rounded-2xl border font-black transition-all cursor-pointer flex flex-col items-center justify-center bg-indigo-500/10 border-indigo-500/30 text-indigo-400 shadow-[0_0_15px_rgba(99,102,241,0.08)] hover:bg-indigo-500/20 select-none"
+            >
+              <span className="text-xl sm:text-2xl">6</span>
+              <span className="text-[7px] sm:text-[8px] font-black text-indigo-400/70 uppercase tracking-widest mt-0.5">SIX</span>
+            </motion.button>
+
+            {/* Five */}
+            <motion.button 
+              whileTap={{ scale: 0.95 }}
+              onClick={() => handleScoreBall(5)} 
+              className="h-16 sm:h-20 rounded-2xl border font-black transition-all cursor-pointer flex flex-col items-center justify-center bg-slate-900/40 border-slate-800 text-slate-300 hover:border-slate-700 select-none"
+            >
+              <span className="text-xl sm:text-2xl">5</span>
+              <span className="text-[7px] sm:text-[8px] font-black text-slate-500 uppercase tracking-widest mt-0.5">FIVE</span>
+            </motion.button>
+
+            {/* Quick Undo */}
+            <motion.button 
+              whileTap={{ scale: 0.95 }}
+              onClick={handleUndo}
+              disabled={history.length === 0}
+              className="h-16 sm:h-20 rounded-2xl border font-black transition-all cursor-pointer flex flex-col items-center justify-center bg-rose-950/20 border-rose-900/30 text-rose-400 disabled:opacity-20 hover:bg-rose-950/35 select-none"
+            >
+              <Undo2 className="w-5 h-5 sm:w-6 sm:h-6 mb-0.5" />
+              <span className="text-[7px] sm:text-[8px] font-black uppercase tracking-widest">UNDO</span>
+            </motion.button>
           </div>
         </section>
-        <section className="p-6 rounded-3xl border border-slate-900 glass-card space-y-4 shadow-xl">
-          <h3 className="text-[10px] font-black text-slate-500 uppercase tracking-widest border-b border-slate-900 pb-2">Actions</h3>
-          <div className="grid grid-cols-2 gap-3">
-            <button onClick={() => setShowExtraType("wide")} className="h-12 rounded-xl border border-slate-800 bg-slate-900/50 text-amber-400 font-black text-[10px] uppercase">Wide</button>
-            <button onClick={() => setShowExtraType("noball")} className="h-12 rounded-xl border border-slate-800 bg-slate-900/50 text-amber-400 font-black text-[10px] uppercase">No Ball</button>
-            <button onClick={() => setShowExtraType("bye")} className="h-12 rounded-xl border border-slate-800 bg-slate-900/50 text-slate-300 font-black text-[10px] uppercase">Bye</button>
-            <button onClick={handleWicket} className="h-12 rounded-xl bg-rose-600/10 border border-rose-500/30 text-rose-500 font-black text-[10px] uppercase">OUT</button>
-            <button onClick={handleRunOut} className="h-12 rounded-xl bg-amber-600/10 border border-amber-500/30 text-amber-500 font-black text-[10px] uppercase">Run Out</button>
-            <button onClick={handleSixAndOut} className="col-span-2 h-14 rounded-xl bg-gradient-to-r from-rose-600 to-amber-600 text-white font-black text-[10px] uppercase shadow-lg shadow-rose-600/20">💥 Common Out</button>
+
+        <section className="p-5 sm:p-6 rounded-3xl border border-slate-900 glass-card space-y-4 shadow-xl">
+          <h3 className="text-[10px] font-black text-slate-500 uppercase tracking-widest border-b border-slate-900 pb-2">Scoring Events</h3>
+          <div className="grid grid-cols-2 gap-2.5">
+            <motion.button whileTap={{ scale: 0.96 }} onClick={() => setShowExtraType("wide")} className="h-12 rounded-xl border border-amber-500/20 bg-amber-500/5 text-amber-400 font-black text-[10px] uppercase tracking-wider hover:bg-amber-500/10 cursor-pointer">Wide</motion.button>
+            <motion.button whileTap={{ scale: 0.96 }} onClick={() => setShowExtraType("noball")} className="h-12 rounded-xl border border-amber-500/20 bg-amber-500/5 text-amber-400 font-black text-[10px] uppercase tracking-wider hover:bg-amber-500/10 cursor-pointer">No Ball</motion.button>
+            <motion.button whileTap={{ scale: 0.96 }} onClick={() => setShowExtraType("bye")} className="h-12 rounded-xl border border-slate-800 bg-slate-900/50 text-slate-300 font-black text-[10px] uppercase tracking-wider hover:bg-slate-900/60 cursor-pointer">Bye / Leg-Bye</motion.button>
+            <motion.button whileTap={{ scale: 0.96 }} onClick={handleWicket} className="h-12 rounded-xl bg-rose-600/10 border border-rose-500/30 text-rose-500 font-black text-[10px] uppercase tracking-wider hover:bg-rose-600/20 cursor-pointer">Wicket</motion.button>
+            <motion.button whileTap={{ scale: 0.96 }} onClick={handleRunOut} className="h-12 rounded-xl bg-amber-600/10 border border-amber-500/30 text-amber-500 font-black text-[10px] uppercase tracking-wider hover:bg-amber-600/20 cursor-pointer">Run Out</motion.button>
+            <motion.button whileTap={{ scale: 0.96 }} onClick={handleSixAndOut} className="col-span-2 h-14 rounded-xl bg-gradient-to-r from-rose-600 to-amber-600 text-white font-black text-[10px] uppercase tracking-widest shadow-lg shadow-rose-600/10 hover:brightness-110 cursor-pointer">💥 Six & Out</motion.button>
           </div>
         </section>
       </div>
@@ -616,20 +697,35 @@ export default function LiveScorerPage({ params }: { params: Promise<{ id: strin
           </div>
         )}
       </AnimatePresence>
-
       <AnimatePresence>
         {showExtraType && (
           <div className="fixed inset-0 z-[60] flex items-center justify-center p-4">
             <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="absolute inset-0 bg-black/80 backdrop-blur-md" onClick={() => setShowExtraType(null)} />
-            <motion.div initial={{ opacity: 0, scale: 0.9, y: 20 }} animate={{ opacity: 1, scale: 1, y: 0 }} exit={{ opacity: 0, scale: 0.9, y: 20 }} className="relative w-full max-w-xs bg-slate-900 border border-amber-500/30 p-8 rounded-[2rem] shadow-2xl z-10">
-              <h3 className="text-xl font-black text-amber-400 mb-6 flex items-center gap-3 uppercase tracking-tighter"><Plus className="w-6 h-6" /> {showExtraType}</h3>
-              <div className="grid grid-cols-3 gap-3">
-                {(showExtraType === "bye" ? [1, 2, 3, 4] : [0, 1, 2, 3, 4]).map((r) => (
-                  <button key={r} onClick={() => { handleScoreBall(r, showExtraType); setShowExtraType(null); }} className="h-16 rounded-2xl border border-amber-500/20 bg-slate-950 text-amber-300 font-black text-xl hover:bg-amber-500/10">
-                    {r}<p className="text-[7px] text-amber-500/40 uppercase mt-1">Runs</p>
-                  </button>
-                ))}
-                <button onClick={() => setShowExtraType(null)} className="h-16 rounded-2xl border border-slate-800 text-slate-600 font-black text-[10px] uppercase">X</button>
+            <motion.div initial={{ opacity: 0, scale: 0.9, y: 20 }} animate={{ opacity: 1, scale: 1, y: 0 }} exit={{ opacity: 0, scale: 0.9, y: 20 }} className="relative w-full max-w-sm bg-slate-900 border border-amber-500/30 p-6 sm:p-8 rounded-3xl sm:rounded-[2rem] shadow-2xl z-10">
+              <h3 className="text-xl font-black text-amber-400 mb-5 flex items-center gap-3 uppercase tracking-tighter"><Plus className="w-6 h-6" /> {showExtraType} Extra</h3>
+              <div className="grid grid-cols-2 gap-3">
+                {(showExtraType === "bye" ? [1, 2, 3, 4] : [0, 1, 2, 3, 4]).map((r) => {
+                  let mainLabel = `${r}`;
+                  let subLabel = "Runs";
+                  if (showExtraType === "wide" || showExtraType === "noball") {
+                    mainLabel = `+${r}`;
+                    subLabel = `${r + 1} Run${r + 1 !== 1 ? 's' : ''} Total`;
+                  } else if (showExtraType === "bye") {
+                    mainLabel = `${r}`;
+                    subLabel = `${r} Bye${r !== 1 ? 's' : ''}`;
+                  }
+                  return (
+                    <button 
+                      key={r} 
+                      onClick={() => { handleScoreBall(r, showExtraType); setShowExtraType(null); }} 
+                      className="h-20 rounded-2xl border border-amber-500/20 bg-slate-950 text-amber-300 font-black hover:bg-amber-500/10 flex flex-col items-center justify-center p-2 transition-all cursor-pointer"
+                    >
+                      <span className="text-xl font-extrabold">{mainLabel}</span>
+                      <span className="text-[7.5px] text-amber-500/60 uppercase font-black tracking-wider mt-1">{subLabel}</span>
+                    </button>
+                  );
+                })}
+                <button onClick={() => setShowExtraType(null)} className="col-span-2 h-14 rounded-2xl border border-slate-800 text-slate-500 font-black text-xs uppercase tracking-widest hover:text-white transition-all cursor-pointer">Cancel</button>
               </div>
             </motion.div>
           </div>
@@ -640,17 +736,17 @@ export default function LiveScorerPage({ params }: { params: Promise<{ id: strin
         {showBowlerSelect && (
           <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
             <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="absolute inset-0 bg-black/75 backdrop-blur-md" />
-            <motion.div initial={{ opacity: 0, scale: 0.95, y: 15 }} animate={{ opacity: 1, scale: 1, y: 0 }} exit={{ opacity: 0, scale: 0.95, y: 15 }} className="relative w-full max-w-sm bg-slate-900 border border-slate-800 p-8 rounded-[2.5rem] shadow-2xl z-10">
-              <h3 className="text-lg font-black text-white mb-2 uppercase tracking-tighter">Next Bowler</h3>
-              <p className="text-[10px] text-slate-500 font-bold uppercase mb-6">{bowlingTeamName} to bowl</p>
+            <motion.div initial={{ opacity: 0, scale: 0.95, y: 15 }} animate={{ opacity: 1, scale: 1, y: 0 }} exit={{ opacity: 0, scale: 0.95, y: 15 }} className="relative w-full max-w-sm bg-slate-900 border border-slate-800 p-5 sm:p-8 rounded-3xl sm:rounded-[2.5rem] shadow-2xl z-10">
+              <h3 className="text-lg font-black text-white mb-1 uppercase tracking-tighter">Next Bowler</h3>
+              <p className="text-[10px] text-slate-500 font-bold uppercase mb-5">{bowlingTeamName} to bowl</p>
               <div className="space-y-2 max-h-[300px] overflow-y-auto pr-1">
                 {(innings === 1 ? (lineup.teamABatsFirst ? lineup.teamBPlayerIds : lineup.teamAPlayerIds) : (lineup.teamABatsFirst ? lineup.teamAPlayerIds : lineup.teamBPlayerIds)).map((id) => {
                   const isLast = id === lastBowlerId;
                   const overs = bowlerStats[id] ? Math.floor(bowlerStats[id].balls / 6) : 0;
                   const limited = lineup.bowlerLimit > 0 && overs >= lineup.bowlerLimit;
                   const disabled = isLast || limited;
-                  return (<button key={id} disabled={disabled} onClick={() => { if (disabled) return; saveHistory(); setCurrentBowlerId(id); setShowBowlerSelect(false); if (!bowlerStats[id]) { setBowlerStats(prev => ({ ...prev, [id]: { playerId: id, runs: 0, balls: 0, wickets: 0, dot_balls_bowled: 0, hatricks: 0 } })); } }} className={`w-full flex items-center justify-between p-4 rounded-2xl border transition-all ${disabled ? "opacity-30 border-slate-800 bg-slate-950" : "border-slate-800 bg-slate-900 hover:border-emerald-500/50"}`}>
-                      <div className="text-left"><p className="text-sm font-black text-white">{playersMap[id]?.name}</p>{isLast && <p className="text-[8px] text-rose-500 font-black uppercase">Last Over</p>}{limited && <p className="text-[8px] text-amber-500 font-black uppercase">Limit Reach</p>}</div>
+                  return (<button key={id} disabled={disabled} onClick={() => { if (disabled) return; saveHistory(); setCurrentBowlerId(id); setShowBowlerSelect(false); if (!bowlerStats[id]) { setBowlerStats(prev => ({ ...prev, [id]: { playerId: id, runs: 0, balls: 0, wickets: 0, dot_balls_bowled: 0, hatricks: 0 } })); } }} className={`w-full flex items-center justify-between p-4 rounded-2xl border transition-all cursor-pointer ${disabled ? "opacity-30 border-slate-800 bg-slate-950" : "border-slate-800 bg-slate-900 hover:border-emerald-500/50"}`}>
+                      <div className="text-left"><p className="text-sm font-black text-white">{playersMap[id]?.name}</p>{isLast && <p className="text-[8px] text-rose-500 font-black uppercase mt-0.5">Last Over</p>}{limited && <p className="text-[8px] text-amber-500 font-black uppercase mt-0.5">Limit Reach</p>}</div>
                       <span className="text-[10px] font-black text-slate-500">{bowlerStats[id] ? `${getOvers(bowlerStats[id].balls)}` : '0.0'}</span>
                     </button>);
                 })}
@@ -664,14 +760,14 @@ export default function LiveScorerPage({ params }: { params: Promise<{ id: strin
         {showNextBatsmanSelect && (
           <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
             <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="absolute inset-0 bg-black/75 backdrop-blur-md" />
-            <motion.div initial={{ opacity: 0, scale: 0.95, y: 15 }} animate={{ opacity: 1, scale: 1, y: 0 }} exit={{ opacity: 0, scale: 0.95, y: 15 }} className="relative w-full max-w-sm bg-slate-900 border border-slate-800 p-8 rounded-[2.5rem] shadow-2xl z-10">
-              <h3 className="text-lg font-black text-white mb-2 uppercase tracking-tighter">Next Batsman</h3>
-              <p className="text-[10px] text-slate-500 font-bold uppercase mb-6">{battingTeamName} to bat</p>
+            <motion.div initial={{ opacity: 0, scale: 0.95, y: 15 }} animate={{ opacity: 1, scale: 1, y: 0 }} exit={{ opacity: 0, scale: 0.95, y: 15 }} className="relative w-full max-w-sm bg-slate-900 border border-slate-800 p-5 sm:p-8 rounded-3xl sm:rounded-[2.5rem] shadow-2xl z-10">
+              <h3 className="text-lg font-black text-white mb-1 uppercase tracking-tighter">Next Batsman</h3>
+              <p className="text-[10px] text-slate-500 font-bold uppercase mb-5">{battingTeamName} to bat</p>
               <div className="space-y-2 max-h-[300px] overflow-y-auto pr-1">
                 {(innings === 1 ? lineup.teamAPlayerIds : lineup.teamBPlayerIds).map((id) => {
                   const out = batsmenStats[id]?.out; const playing = id === strikerId || id === nonStrikerId;
-                  return (<button key={id} disabled={out || playing} onClick={() => { if (out || playing) return; if (replacingSlot === "striker") { setStrikerId(id); } else { setNonStrikerId(id); } setBatsmenStats(prev => ({ ...prev, [id]: prev[id] || { playerId: id, runs: 0, balls: 0, fours: 0, sixes: 0, out: false } })); setShowNextBatsmanSelect(false); }} className={`w-full flex items-center justify-between p-4 rounded-2xl border transition-all ${out || playing ? "opacity-30 border-slate-800 bg-slate-950" : "border-slate-800 bg-slate-900 hover:border-emerald-500/50"}`}>
-                      <div className="text-left"><p className="text-sm font-black text-white">{playersMap[id]?.name}</p>{out && <p className="text-[8px] text-rose-500 font-black uppercase">Out</p>}{playing && <p className="text-[8px] text-emerald-500 font-black uppercase">Active</p>}</div>
+                  return (<button key={id} disabled={out || playing} onClick={() => { if (out || playing) return; if (replacingSlot === "striker") { setStrikerId(id); } else { setNonStrikerId(id); } setBatsmenStats(prev => ({ ...prev, [id]: prev[id] || { playerId: id, runs: 0, balls: 0, fours: 0, sixes: 0, out: false } })); setShowNextBatsmanSelect(false); }} className={`w-full flex items-center justify-between p-4 rounded-2xl border transition-all cursor-pointer ${out || playing ? "opacity-30 border-slate-800 bg-slate-955" : "border-slate-800 bg-slate-900 hover:border-emerald-500/50"}`}>
+                      <div className="text-left"><p className="text-sm font-black text-white">{playersMap[id]?.name}</p>{out && <p className="text-[8px] text-rose-500 font-black uppercase mt-0.5">Out</p>} {playing && <p className="text-[8px] text-emerald-500 font-black uppercase mt-0.5">Active</p>}</div>
                     </button>);
                 })}
               </div>
@@ -684,16 +780,16 @@ export default function LiveScorerPage({ params }: { params: Promise<{ id: strin
         {showSettings && (
           <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
             <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="absolute inset-0 bg-black/75 backdrop-blur-md" onClick={() => setShowSettings(false)} />
-            <motion.div initial={{ opacity: 0, scale: 0.95, y: 15 }} animate={{ opacity: 1, scale: 1, y: 0 }} exit={{ opacity: 0, scale: 0.95, y: 15 }} className="relative w-full max-w-md bg-slate-900 border border-slate-800 p-8 rounded-[2.5rem] shadow-2xl z-10 overflow-y-auto max-h-[90vh]">
-              <h3 className="text-lg font-black text-white mb-6 uppercase tracking-tighter">Settings</h3>
+            <motion.div initial={{ opacity: 0, scale: 0.95, y: 15 }} animate={{ opacity: 1, scale: 1, y: 0 }} exit={{ opacity: 0, scale: 0.95, y: 15 }} className="relative w-full max-w-md bg-slate-900 border border-slate-800 p-5 sm:p-8 rounded-3xl sm:rounded-[2.5rem] shadow-2xl z-10 overflow-y-auto max-h-[90vh]">
+              <h3 className="text-lg font-black text-white mb-6 uppercase tracking-tighter">Match Settings</h3>
               <div className="space-y-6">
                 <div><label className="text-[10px] font-black text-emerald-500 uppercase tracking-widest block mb-3">Striker</label>
-                  <div className="grid grid-cols-1 gap-2">{(innings === 1 ? lineup.teamAPlayerIds : lineup.teamBPlayerIds).map(id => (<button key={id} disabled={batsmenStats[id]?.out && id !== strikerId} onClick={() => { if (id === nonStrikerId) setNonStrikerId(strikerId); setStrikerId(id); setBatsmenStats(prev => ({ ...prev, [id]: prev[id] || { playerId: id, runs: 0, balls: 0, fours: 0, sixes: 0, out: false } })); }} className={`p-3 rounded-xl border text-xs font-bold ${id === strikerId ? "border-emerald-500 bg-emerald-500/10 text-white" : "border-slate-800 text-slate-500"}`}>{playersMap[id]?.name}</button>))}</div>
+                  <div className="grid grid-cols-1 gap-2">{(innings === 1 ? lineup.teamAPlayerIds : lineup.teamBPlayerIds).map(id => (<button key={id} disabled={batsmenStats[id]?.out && id !== strikerId} onClick={() => { if (id === nonStrikerId) setNonStrikerId(strikerId); setStrikerId(id); setBatsmenStats(prev => ({ ...prev, [id]: prev[id] || { playerId: id, runs: 0, balls: 0, fours: 0, sixes: 0, out: false } })); }} className={`p-3 rounded-xl border text-xs font-bold transition-all cursor-pointer ${id === strikerId ? "border-emerald-500 bg-emerald-500/10 text-white" : "border-slate-800 text-slate-500 hover:border-slate-700"}`}>{playersMap[id]?.name}</button>))}</div>
                 </div>
                 <div><label className="text-[10px] font-black text-indigo-500 uppercase tracking-widest block mb-3">Non-Striker</label>
-                  <div className="grid grid-cols-1 gap-2">{(innings === 1 ? lineup.teamAPlayerIds : lineup.teamBPlayerIds).map(id => (<button key={id} disabled={batsmenStats[id]?.out && id !== nonStrikerId} onClick={() => { if (id === strikerId) setStrikerId(nonStrikerId); setNonStrikerId(id); setBatsmenStats(prev => ({ ...prev, [id]: prev[id] || { playerId: id, runs: 0, balls: 0, fours: 0, sixes: 0, out: false } })); }} className={`p-3 rounded-xl border text-xs font-bold ${id === nonStrikerId ? "border-indigo-500 bg-indigo-500/10 text-white" : "border-slate-800 text-slate-500"}`}>{playersMap[id]?.name}</button>))}</div>
+                  <div className="grid grid-cols-1 gap-2">{(innings === 1 ? lineup.teamAPlayerIds : lineup.teamBPlayerIds).map(id => (<button key={id} disabled={batsmenStats[id]?.out && id !== nonStrikerId} onClick={() => { if (id === strikerId) setStrikerId(nonStrikerId); setNonStrikerId(id); setBatsmenStats(prev => ({ ...prev, [id]: prev[id] || { playerId: id, runs: 0, balls: 0, fours: 0, sixes: 0, out: false } })); }} className={`p-3 rounded-xl border text-xs font-bold transition-all cursor-pointer ${id === nonStrikerId ? "border-indigo-500 bg-indigo-500/10 text-white" : "border-slate-800 text-slate-500 hover:border-slate-700"}`}>{playersMap[id]?.name}</button>))}</div>
                 </div>
-                <button onClick={() => setShowSettings(false)} className="w-full py-4 rounded-2xl bg-slate-800 text-white font-black uppercase tracking-widest">Done</button>
+                <button onClick={() => setShowSettings(false)} className="w-full py-4 rounded-2xl bg-slate-800 text-white font-black uppercase tracking-widest hover:bg-slate-700 transition-all cursor-pointer">Done</button>
               </div>
             </motion.div>
           </div>
