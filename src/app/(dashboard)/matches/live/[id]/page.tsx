@@ -931,6 +931,11 @@ export default function LiveScorerPage({ params }: { params: Promise<{ id: strin
     return `${oversCount}.${remainingBalls}`;
   };
 
+  const getStrikeRate = (runs: number, ballsCount: number) => {
+    if (ballsCount === 0) return "0.0";
+    return ((runs / ballsCount) * 100).toFixed(1);
+  };
+
   const requiredRuns = innings === 2 ? (innings1Total + 1) - score : 0;
   const remainingBalls = lineup ? (lineup.oversLimit * 6) - balls : 0;
   const reqRunRate = remainingBalls > 0 ? ((requiredRuns * 6) / remainingBalls).toFixed(2) : "0.00";
@@ -1045,26 +1050,47 @@ export default function LiveScorerPage({ params }: { params: Promise<{ id: strin
           </div>
           <div className="space-y-4">
             <div className="space-y-2">
-              <div className="flex justify-between items-center text-xs font-bold text-slate-500 uppercase tracking-wider"><span>Batsman</span><span>R (B)</span></div>
+              <div className="flex justify-between items-center text-[10px] font-bold text-slate-500 uppercase tracking-wider">
+                <span>Batsman</span>
+                <span>R (B) SR</span>
+              </div>
               {strikerId && batsmenStats[strikerId] && (
                 <div onClick={() => setShowSettings(true)} className="flex justify-between items-center p-2 rounded-lg bg-emerald-500/5 border border-emerald-500/20 cursor-pointer hover:border-emerald-500/40 transition-all">
-                  <span className="text-sm font-semibold text-emerald-400 flex items-center gap-1.5"><Zap className="w-3.5 h-3.5 text-emerald-400 animate-pulse" /> {playersMap[strikerId]?.name} *</span>
-                  <span className="text-sm font-bold text-emerald-400">{batsmenStats[strikerId].runs} ({batsmenStats[strikerId].balls})</span>
+                  <span className="text-sm font-semibold text-emerald-400 flex items-center gap-1.5">
+                    <Zap className="w-3.5 h-3.5 text-emerald-400 animate-pulse" /> {playersMap[strikerId]?.name} *
+                  </span>
+                  <div className="text-right">
+                    <p className="text-sm font-bold text-emerald-400">{batsmenStats[strikerId].runs} ({batsmenStats[strikerId].balls})</p>
+                    <p className="text-[9px] font-black text-emerald-500/60 uppercase">SR: {getStrikeRate(batsmenStats[strikerId].runs, batsmenStats[strikerId].balls)}</p>
+                  </div>
                 </div>
               )}
               {nonStrikerId && batsmenStats[nonStrikerId] && (
                 <div onClick={() => setShowSettings(true)} className="flex justify-between items-center p-2 rounded-lg bg-slate-900/50 border border-slate-800 cursor-pointer hover:border-slate-700 transition-all">
                   <span className="text-sm font-semibold text-slate-300">{playersMap[nonStrikerId]?.name}</span>
-                  <span className="text-sm font-bold text-slate-400">{batsmenStats[nonStrikerId].runs} ({batsmenStats[nonStrikerId].balls})</span>
+                  <div className="text-right">
+                    <p className="text-sm font-bold text-slate-400">{batsmenStats[nonStrikerId].runs} ({batsmenStats[nonStrikerId].balls})</p>
+                    <p className="text-[9px] font-black text-slate-500 uppercase">SR: {getStrikeRate(batsmenStats[nonStrikerId].runs, batsmenStats[nonStrikerId].balls)}</p>
+                  </div>
                 </div>
               )}
             </div>
             <div className="space-y-2 pt-2 border-t border-slate-900/60">
-              <div className="flex justify-between items-center text-xs font-bold text-slate-500 uppercase tracking-wider"><span>Bowler</span><span>O-R-W</span></div>
+              <div className="flex justify-between items-center text-[10px] font-bold text-slate-500 uppercase tracking-wider">
+                <span>Bowler</span>
+                <span>O-R-W Econ</span>
+              </div>
               {currentBowlerId && bowlerStats[currentBowlerId] && (
                 <div onClick={() => setShowBowlerSelect(true)} className="flex justify-between items-center p-2 rounded-lg bg-slate-900/50 border border-slate-800 cursor-pointer hover:border-emerald-500/30 transition-all">
                   <span className="text-sm font-semibold text-white">{playersMap[currentBowlerId]?.name}</span>
-                  <span className="text-sm font-bold text-slate-300">{getOvers(bowlerStats[currentBowlerId].balls)} - {bowlerStats[currentBowlerId].runs} - {bowlerStats[currentBowlerId].wickets}</span>
+                  <div className="text-right">
+                    <p className="text-sm font-bold text-slate-300">
+                      {getOvers(bowlerStats[currentBowlerId].balls)} - {bowlerStats[currentBowlerId].runs} - {bowlerStats[currentBowlerId].wickets}
+                    </p>
+                    <p className="text-[9px] font-black text-emerald-400/60 uppercase">
+                      Econ: {getEconomy(bowlerStats[currentBowlerId].runs, bowlerStats[currentBowlerId].balls)}
+                    </p>
+                  </div>
                 </div>
               )}
             </div>
