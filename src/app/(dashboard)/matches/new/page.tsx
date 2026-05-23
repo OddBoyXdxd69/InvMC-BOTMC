@@ -17,10 +17,15 @@ export default function NewMatchPage() {
   const [teamAName, setTeamAName] = useState("Team A");
   const [teamBName, setTeamBName] = useState("Team B");
   const [overs, setOvers] = useState(5);
+  const [bowlerLimit, setBowlerLimit] = useState(2);
   const [singleMan, setSingleMan] = useState(true); // This will be labeled "Last Man Standing"
   const [singleManMode, setSingleManMode] = useState(false); // New: everyone bats alone
   const [teamAPlayers, setTeamAPlayers] = useState<number[]>([]);
   const [teamBPlayers, setTeamBPlayers] = useState<number[]>([]);
+  
+  // Toss
+  const [tossWinner, setTossWinner] = useState<"A" | "B" | null>(null);
+  const [tossDecision, setTossDecision] = useState<"bat" | "bowl" | null>(null);
   const [commonPlayers, setCommonPlayers] = useState<number[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -125,13 +130,24 @@ export default function NewMatchPage() {
           team_b_name: teamBName.trim(),
           overs_limit: Number(overs),
           single_man: singleMan,
-          single_man_mode: singleManMode
+          single_man_mode: singleManMode,
+          toss_winner_id: tossWinner === "A" ? 1 : (tossWinner === "B" ? 2 : null), // Temporary logic for API
+          toss_decision: tossDecision,
+          bowler_overs_limit: Number(bowlerLimit)
         }),
       });
 
       const data = await res.json();
 
       if (res.ok && data.match_id) {
+        // Determine who bats first based on toss
+        let teamABatsFirst = true;
+        if (tossWinner === "A") {
+          teamABatsFirst = tossDecision === "bat";
+        } else if (tossWinner === "B") {
+          teamABatsFirst = tossDecision === "bowl";
+        }
+
         const lineupData = {
           teamAName: teamAName.trim(),
           teamBName: teamBName.trim(),
@@ -140,7 +156,11 @@ export default function NewMatchPage() {
           commonPlayerIds: commonPlayers,
           oversLimit: Number(overs),
           singleMan: singleMan,
-          singleManMode: singleManMode
+          singleManMode: singleManMode,
+          tossWinner: tossWinner === "A" ? teamAName : teamBName,
+          tossDecision: tossDecision,
+          bowlerLimit: Number(bowlerLimit),
+          teamABatsFirst: teamABatsFirst
         };
         localStorage.setItem(`match_lineup_${data.match_id}`, JSON.stringify(lineupData));
 
@@ -236,6 +256,78 @@ export default function NewMatchPage() {
                     </option>
                   ))}
                 </select>
+              </div>
+              <div className="space-y-2">
+                <label className="text-xs font-semibold uppercase tracking-wider text-slate-400">Bowler Over Limit</label>
+                <select
+                  value={bowlerLimit}
+                  onChange={(e) => setBowlerLimit(Number(e.target.value))}
+                  className="flex h-12 w-full rounded-xl border border-slate-800 bg-slate-900/40 px-4 py-2 text-sm text-slate-100 focus-visible:outline-none focus:border-indigo-500 focus-visible:ring-2 focus-visible:ring-indigo-500/25 transition-all duration-300 cursor-pointer"
+                >
+                  {[1, 2, 3, 4, 5, 10].map((lim) => (
+                    <option key={lim} value={lim}>
+                      Max {lim} Overs
+                    </option>
+                  ))}
+                  <option value={0}>Unlimited</option>
+                </select>
+              </div>
+            </div>
+
+            {/* Toss Management */}
+            <div className="p-5 rounded-2xl border border-indigo-500/20 bg-indigo-500/5 space-y-4">
+              <h3 className="text-sm font-bold text-white flex items-center gap-2">
+                <ArrowLeftRight className="w-4 h-4 text-indigo-400" /> Match Toss
+              </h3>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
+                <div className="space-y-3">
+                  <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Who won the toss?</p>
+                  <div className="flex gap-2">
+                    <button
+                      type="button"
+                      onClick={() => setTossWinner("A")}
+                      className={`flex-1 py-2.5 rounded-xl border text-xs font-bold transition-all ${
+                        tossWinner === "A" ? "bg-emerald-500 border-emerald-400 text-white" : "bg-slate-950 border-slate-800 text-slate-400 hover:border-slate-700"
+                      }`}
+                    >
+                      {teamAName}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setTossWinner("B")}
+                      className={`flex-1 py-2.5 rounded-xl border text-xs font-bold transition-all ${
+                        tossWinner === "B" ? "bg-indigo-500 border-indigo-400 text-white" : "bg-slate-950 border-slate-800 text-slate-400 hover:border-slate-700"
+                      }`}
+                    >
+                      {teamBName}
+                    </button>
+                  </div>
+                </div>
+                {tossWinner && (
+                  <div className="space-y-3">
+                    <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Elected to?</p>
+                    <div className="flex gap-2">
+                      <button
+                        type="button"
+                        onClick={() => setTossDecision("bat")}
+                        className={`flex-1 py-2.5 rounded-xl border text-xs font-bold transition-all ${
+                          tossDecision === "bat" ? "bg-amber-500 border-amber-400 text-white" : "bg-slate-950 border-slate-800 text-slate-400 hover:border-slate-700"
+                        }`}
+                      >
+                        Bat First
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setTossDecision("bowl")}
+                        className={`flex-1 py-2.5 rounded-xl border text-xs font-bold transition-all ${
+                          tossDecision === "bowl" ? "bg-amber-500 border-amber-400 text-white" : "bg-slate-950 border-slate-800 text-slate-400 hover:border-slate-700"
+                        }`}
+                      >
+                        Bowl First
+                      </button>
+                    </div>
+                  </div>
+                )}
               </div>
             </div>
 

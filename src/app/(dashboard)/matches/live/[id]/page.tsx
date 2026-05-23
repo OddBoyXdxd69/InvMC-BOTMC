@@ -279,22 +279,30 @@ export default function LiveScorerPage({ params }: { params: Promise<{ id: strin
   };
 
   const initializeScoring = (lineupConfig: MatchLineup) => {
+    const battingPlayerIds = lineupConfig.teamABatsFirst 
+      ? lineupConfig.teamAPlayerIds 
+      : lineupConfig.teamBPlayerIds;
+    
+    const bowlingPlayerIds = lineupConfig.teamABatsFirst
+      ? lineupConfig.teamBPlayerIds
+      : lineupConfig.teamAPlayerIds;
+
     const initialBatsmen: Record<number, BatsmanState> = {};
-    lineupConfig.teamAPlayerIds.forEach((id) => {
+    battingPlayerIds.forEach((id) => {
       initialBatsmen[id] = { playerId: id, runs: 0, balls: 0, fours: 0, sixes: 0, out: false };
     });
 
     const initialBowlers: Record<number, BowlerState> = {};
-    lineupConfig.teamBPlayerIds.forEach((id) => {
+    bowlingPlayerIds.forEach((id) => {
       initialBowlers[id] = { playerId: id, runs: 0, balls: 0, wickets: 0 };
     });
 
     setBatsmenStats(initialBatsmen);
     setBowlerStats(initialBowlers);
 
-    setStrikerId(lineupConfig.teamAPlayerIds[0] || null);
-    setNonStrikerId(lineupConfig.singleManMode ? null : (lineupConfig.teamAPlayerIds[1] || null));
-    setCurrentBowlerId(lineupConfig.teamBPlayerIds[0] || null);
+    setStrikerId(battingPlayerIds[0] || null);
+    setNonStrikerId(lineupConfig.singleManMode ? null : (battingPlayerIds[1] || null));
+    setCurrentBowlerId(bowlingPlayerIds[0] || null);
   };
 
   const getActiveState = (): ScorerState => ({
@@ -1508,21 +1516,31 @@ export default function LiveScorerPage({ params }: { params: Promise<{ id: strin
                 Over completed! Select bowler for the next over from {bowlingTeamName}.
               </p>
               <div className="space-y-2 max-h-[250px] overflow-y-auto pr-1">
-                {(innings === 1 ? lineup.teamBPlayerIds : lineup.teamAPlayerIds)
+                {(innings === 1 ? (lineup.teamABatsFirst ? lineup.teamBPlayerIds : lineup.teamAPlayerIds) : (lineup.teamABatsFirst ? lineup.teamAPlayerIds : lineup.teamBPlayerIds))
                   .map((id) => {
                     const isLastBowler = id === lastBowlerId;
+                    const oversDone = bowlerStats[id] ? Math.floor(bowlerStats[id].balls / 6) : 0;
+                    const hasReachedLimit = lineup.bowlerLimit > 0 && oversDone >= lineup.bowlerLimit;
+                    const isDisabled = isLastBowler || hasReachedLimit;
+
                     return (
                       <button
                         key={id}
-                        disabled={isLastBowler}
+                        disabled={isDisabled}
                         onClick={() => {
-                          if (isLastBowler) return;
+                          if (isDisabled) return;
                           saveHistory();
                           setCurrentBowlerId(id);
+                          if (!bowlerStats[id]) {
+                            setBowlerStats(prev => ({
+                              ...prev,
+                              [id]: { playerId: id, runs: 0, balls: 0, wickets: 0 }
+                            }));
+                          }
                           setShowBowlerSelect(false);
                         }}
                         className={`w-full flex items-center justify-between p-3.5 rounded-xl border transition-all text-left ${
-                          isLastBowler
+                          isDisabled
                             ? "border-slate-800/50 bg-slate-900/10 text-slate-600 cursor-not-allowed opacity-40"
                             : "border-slate-800 bg-slate-900/30 text-white hover:border-emerald-500/30 hover:bg-emerald-500/5 cursor-pointer"
                         }`}
@@ -1532,6 +1550,11 @@ export default function LiveScorerPage({ params }: { params: Promise<{ id: strin
                           {isLastBowler && (
                             <span className="text-[9px] bg-rose-500/15 text-rose-400 px-1.5 py-0.5 rounded font-bold uppercase tracking-wider">
                               Last Over
+                            </span>
+                          )}
+                          {hasReachedLimit && (
+                            <span className="text-[9px] bg-amber-500/15 text-amber-400 px-1.5 py-0.5 rounded font-bold uppercase tracking-wider">
+                              Limit Reached
                             </span>
                           )}
                         </div>
@@ -1748,15 +1771,19 @@ export default function LiveScorerPage({ params }: { params: Promise<{ id: strin
                   <Target className="w-3 h-3" /> Current Bowler
                 </label>
                 <div className="space-y-1.5 max-h-[140px] overflow-y-auto pr-1">
-                  {(innings === 1 ? lineup.teamBPlayerIds : lineup.teamAPlayerIds)
+                  {(innings === 1 ? (lineup.teamABatsFirst ? lineup.teamBPlayerIds : lineup.teamAPlayerIds) : (lineup.teamABatsFirst ? lineup.teamAPlayerIds : lineup.teamBPlayerIds))
                     .map(id => {
                       const isLastBowler = id === lastBowlerId;
+                      const oversDone = bowlerStats[id] ? Math.floor(bowlerStats[id].balls / 6) : 0;
+                      const hasReachedLimit = lineup.bowlerLimit > 0 && oversDone >= lineup.bowlerLimit;
+                      const isDisabled = isLastBowler || hasReachedLimit;
+                      
                       return (
                         <button
                           key={id}
-                          disabled={isLastBowler}
+                          disabled={isDisabled}
                           onClick={() => {
-                            if (isLastBowler) return;
+                            if (isDisabled) return;
                             saveHistory();
                             setCurrentBowlerId(id);
                             if (!bowlerStats[id]) {
@@ -1767,7 +1794,7 @@ export default function LiveScorerPage({ params }: { params: Promise<{ id: strin
                             }
                           }}
                           className={`w-full flex items-center justify-between p-3 rounded-xl border text-sm font-semibold text-left transition-all ${
-                            isLastBowler
+                            isDisabled
                               ? "border-slate-800/50 bg-slate-900/10 text-slate-600 cursor-not-allowed opacity-40"
                               : id === currentBowlerId 
                                 ? "bg-amber-500/10 border-amber-500/30 text-amber-400" 
@@ -1779,6 +1806,11 @@ export default function LiveScorerPage({ params }: { params: Promise<{ id: strin
                             {isLastBowler && (
                               <span className="text-[9px] bg-rose-500/15 text-rose-400 px-1.5 py-0.5 rounded font-bold uppercase tracking-wider">
                                 Last Over
+                              </span>
+                            )}
+                            {hasReachedLimit && (
+                              <span className="text-[9px] bg-amber-500/15 text-amber-400 px-1.5 py-0.5 rounded font-bold uppercase tracking-wider">
+                                Limit Reached
                               </span>
                             )}
                           </div>

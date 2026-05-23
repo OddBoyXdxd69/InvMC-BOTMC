@@ -38,7 +38,10 @@ export const initDB = async () => {
       team_b_balls INTEGER DEFAULT 0,
       balls_log TEXT,
       single_man INTEGER DEFAULT 1,
-      single_man_mode INTEGER DEFAULT 0
+      single_man_mode INTEGER DEFAULT 0,
+      toss_winner_id INTEGER,
+      toss_decision TEXT CHECK(toss_decision IN ('bat', 'bowl')),
+      bowler_overs_limit INTEGER DEFAULT 0
     );
   `;
 
