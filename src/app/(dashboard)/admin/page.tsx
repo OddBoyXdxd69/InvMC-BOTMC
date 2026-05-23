@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Lock, Trash2, Edit, AlertTriangle, KeyRound, CheckCircle, RefreshCw, Users } from "lucide-react";
+import { Lock, Trash2, Edit, AlertTriangle, KeyRound, CheckCircle, RefreshCw, Users, Calendar } from "lucide-react";
 import { motion } from "framer-motion";
 
 interface Player {
@@ -18,6 +18,7 @@ interface Match {
 }
 
 export default function AdminPage() {
+  const router = useRouter();
   const [isAuthorized, setIsAuthorized] = useState(false);
   const [passcode, setPasscode] = useState("");
   const [error, setError] = useState("");
@@ -408,39 +409,70 @@ export default function AdminPage() {
       </div>
 
       {/* Match Management Section */}
-      <section className="p-6 rounded-2xl border border-slate-900 glass-card shadow-xl space-y-4">
-        <h2 className="text-lg font-bold text-white flex items-center gap-2">
-          <RefreshCw className="w-5 h-5 text-indigo-400" /> Match Management ({matches.length})
-        </h2>
+      <section className="p-6 rounded-2xl border border-slate-900 glass-card shadow-xl space-y-6">
+        <div className="flex items-center justify-between border-b border-slate-900 pb-4">
+          <h2 className="text-lg font-black text-white flex items-center gap-2">
+            <RefreshCw className="w-5 h-5 text-indigo-400" /> Match History ({matches.length})
+          </h2>
+          <div className="hidden sm:block text-[10px] font-bold text-slate-500 uppercase tracking-widest bg-slate-950 px-3 py-1 rounded-full border border-slate-900">
+            Records found
+          </div>
+        </div>
 
-        <div className="border border-slate-900/60 rounded-xl overflow-hidden divide-y divide-slate-900/60 bg-slate-950/20 max-h-[500px] overflow-y-auto pr-1">
+        <div className="grid grid-cols-1 gap-4">
           {matches.length > 0 ? (
             matches.map((m) => (
-              <div key={m.id} className="flex justify-between items-center p-4 hover:bg-slate-900/10 transition-colors">
-                <div className="flex flex-col">
-                  <span className="text-sm font-semibold text-slate-200">
-                    {m.team_a_name} vs {m.team_b_name}
-                  </span>
-                  <div className="flex items-center gap-2 mt-1">
-                    <span className="text-[10px] text-slate-500 font-medium">{m.date}</span>
-                    <span className={`text-[9px] px-1.5 py-0.5 rounded font-bold uppercase tracking-wider ${
-                      m.status === 'completed' ? 'bg-emerald-500/10 text-emerald-500' : 'bg-amber-500/10 text-amber-500'
+              <div 
+                key={m.id} 
+                className="group p-5 rounded-2xl border border-slate-900 bg-slate-950/20 hover:bg-slate-900/10 hover:border-indigo-500/20 transition-all flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 shadow-lg overflow-hidden relative"
+              >
+                <div className="absolute left-0 top-0 w-1 h-full bg-slate-900 group-hover:bg-indigo-500/40 transition-colors" />
+                
+                <div className="flex-1 space-y-2">
+                  <div className="flex items-center gap-3 flex-wrap">
+                    <span className="text-lg font-black text-white tracking-tight leading-none uppercase">
+                      {m.team_a_name}
+                    </span>
+                    <span className="text-[10px] font-bold text-slate-600 uppercase tracking-widest px-2 py-0.5 rounded-md bg-slate-950 border border-slate-900">VS</span>
+                    <span className="text-lg font-black text-white tracking-tight leading-none uppercase">
+                      {m.team_b_name}
+                    </span>
+                  </div>
+                  <div className="flex items-center gap-3">
+                    <div className="flex items-center gap-1.5 text-slate-500">
+                      <Calendar className="w-3 h-3 text-indigo-400/60" />
+                      <span className="text-[11px] font-semibold">{m.date}</span>
+                    </div>
+                    <span className={`text-[9px] px-2 py-0.5 rounded font-black uppercase tracking-widest ${
+                      m.status === 'completed' ? 'bg-emerald-500/10 text-emerald-500 border border-emerald-500/20' : 'bg-amber-500/10 text-amber-500 border border-amber-500/20'
                     }`}>
                       {m.status}
                     </span>
                   </div>
                 </div>
-                <button
-                  onClick={() => handleDeleteMatch(m.id, `${m.team_a_name} vs ${m.team_b_name}`)}
-                  className="p-2.5 rounded-lg bg-slate-950 hover:bg-rose-950/30 border border-slate-900/80 text-slate-400 hover:text-rose-400 transition-all"
-                  title="Delete Match"
-                >
-                  <Trash2 className="w-4 h-4" />
-                </button>
+
+                <div className="flex items-center gap-3 w-full sm:w-auto border-t sm:border-t-0 border-slate-900 pt-4 sm:pt-0">
+                  <button
+                    onClick={() => router.push(`/matches/${m.id}`)}
+                    className="flex-1 sm:flex-none h-10 px-5 rounded-xl bg-slate-900 border border-slate-800 text-slate-300 hover:text-white hover:border-slate-700 text-[10px] font-black uppercase tracking-[0.2em] transition-all active:scale-95 shadow-sm shadow-slate-950"
+                  >
+                    View Scorecard
+                  </button>
+                  <button
+                    onClick={() => handleDeleteMatch(m.id, `${m.team_a_name} vs ${m.team_b_name}`)}
+                    className="h-10 w-10 flex items-center justify-center rounded-xl bg-rose-600/10 border border-rose-500/20 text-rose-500 hover:bg-rose-600 hover:text-white transition-all shadow-lg shadow-rose-600/5 active:scale-95"
+                    title="Delete Match"
+                  >
+                    <Trash2 className="w-4 h-4" />
+                  </button>
+                </div>
               </div>
             ))
           ) : (
-            <p className="p-12 text-center text-slate-500 italic text-sm font-light">No matches found in history.</p>
+            <div className="py-20 text-center bg-slate-950/20 rounded-3xl border-2 border-dashed border-slate-900/50">
+              <RefreshCw className="w-12 h-12 text-slate-800 mx-auto mb-4 opacity-40" />
+              <p className="text-slate-500 italic text-sm font-light uppercase tracking-widest">No match records found in history.</p>
+            </div>
           )}
         </div>
       </section>
