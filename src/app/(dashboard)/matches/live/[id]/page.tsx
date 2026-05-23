@@ -18,8 +18,10 @@ interface MatchLineup {
   teamBPlayerIds: number[];
   commonPlayerIds?: number[];
   oversLimit: number;
+  bowlerLimit: number;
   singleMan?: boolean;
   singleManMode?: boolean;
+  teamABatsFirst?: boolean;
 }
 
 interface BatsmanState {

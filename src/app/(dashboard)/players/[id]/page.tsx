@@ -5,12 +5,48 @@ import { useRouter } from "next/navigation";
 import { ChevronLeft, TrendingUp, Target, Award, Trophy, Users, ShieldCheck, History, Star, Medal } from "lucide-react";
 import { motion } from "framer-motion";
 
+interface PlayerData {
+  player: {
+    id: number;
+    name: string;
+    role: string;
+    matches_played: number;
+    runs_scored: number;
+    balls_faced: number;
+    fours: number;
+    sixes: number;
+    wickets_taken: number;
+    runs_conceded: number;
+    balls_bowled: number;
+    highest_score?: string;
+    best_bowling?: string;
+  };
+  match_history: Array<{
+    id: number;
+    team_a_name: string;
+    team_b_name: string;
+    date: string;
+    winner: string;
+    runs_scored: number;
+    balls_faced: number;
+    wickets_taken: number;
+    runs_conceded: number;
+    team_name: string;
+  }>;
+  badges: Array<{
+    id: string;
+    name: string;
+    desc: string;
+    icon: string;
+  }>;
+}
+
 export default function PlayerProfilePage({ params }: { params: Promise<{ id: string }> }) {
   const router = useRouter();
   const resolvedParams = use(params);
   const playerId = resolvedParams.id;
 
-  const [data, setData] = useState<any>(null);
+  const [data, setData] = useState<PlayerData | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -82,7 +118,7 @@ export default function PlayerProfilePage({ params }: { params: Promise<{ id: st
               <Medal className="w-4 h-4 text-amber-500" /> Achievements
             </h3>
             <div className="grid grid-cols-1 gap-3">
-              {data.badges.length > 0 ? data.badges.map((b: any) => (
+              {data.badges.length > 0 ? data.badges.map((b) => (
                 <div key={b.id} className="p-4 rounded-2xl bg-amber-500/5 border border-amber-500/10 flex items-center gap-4">
                   <div className="text-2xl">{b.icon}</div>
                   <div>
@@ -123,7 +159,7 @@ export default function PlayerProfilePage({ params }: { params: Promise<{ id: st
           <div className="space-y-6">
             <h3 className="text-sm font-black text-white uppercase tracking-widest flex items-center gap-2"><History className="w-5 h-5 text-slate-500" /> Recent Match History</h3>
             <div className="space-y-4">
-              {history.map((m: any, idx: number) => (
+              {history.map((m, idx) => (
                 <div key={idx} className="p-6 rounded-[2rem] border border-slate-900 bg-slate-950 hover:border-emerald-500/20 transition-all group shadow-xl">
                   <div className="flex flex-col md:flex-row justify-between gap-6">
                     <div className="flex-1">

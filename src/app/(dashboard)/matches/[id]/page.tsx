@@ -183,7 +183,7 @@ export default function MatchScorecardPage({ params }: { params: Promise<{ id: s
 
   // 4. Fall of Wickets
   const getFOW = (timeline: BallLogEntry[]) => {
-    const fow = [];
+    const fow: { wicket: number; score: number; player: string; over: string }[] = [];
     let currentScore = 0;
     let currentWickets = 0;
     timeline.forEach((ball) => {
@@ -203,7 +203,7 @@ export default function MatchScorecardPage({ params }: { params: Promise<{ id: s
 
   // 5. Partnerships
   const calculatePartnerships = (timeline: BallLogEntry[]) => {
-    const ps: any[] = [];
+    const ps: { total: number; balls: number; p1Name: string; p1Runs: number; p1Balls: number; p2Name: string; p2Runs: number; p2Balls: number; wicket?: string }[] = [];
     if (timeline.length === 0) return ps;
     let currentP = { total: 0, balls: 0, p1Name: "", p1Runs: 0, p1Balls: 0, p2Name: "", p2Runs: 0, p2Balls: 0, wicket: "" };
     let p1Name = ""; let p2Name = "";
