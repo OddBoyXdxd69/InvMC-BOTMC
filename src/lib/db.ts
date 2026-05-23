@@ -61,6 +61,12 @@ export const initDB = async () => {
       wicket_how TEXT DEFAULT 'not_out'
     );
   `;
+
+  // Migrations for existing tables
+  await sql`ALTER TABLE matches ADD COLUMN IF NOT EXISTS single_man_mode INTEGER DEFAULT 0`;
+  await sql`ALTER TABLE matches ADD COLUMN IF NOT EXISTS toss_winner_id INTEGER`;
+  await sql`ALTER TABLE matches ADD COLUMN IF NOT EXISTS toss_decision TEXT`;
+  await sql`ALTER TABLE matches ADD COLUMN IF NOT EXISTS bowler_overs_limit INTEGER DEFAULT 0`;
 };
 
 export default sql;
