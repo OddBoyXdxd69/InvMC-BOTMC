@@ -71,6 +71,15 @@ export async function POST(request: Request) {
       return NextResponse.json({ success: true, match_id: result[0].id });
     }
 
+    if (action === "reduce_overs") {
+      const { match_id, overs_limit } = body;
+      if (!match_id || !overs_limit) {
+        return NextResponse.json({ error: "Missing match_id or overs_limit" }, { status: 450 });
+      }
+      await sql`UPDATE matches SET overs_limit = ${Number(overs_limit)} WHERE id = ${Number(match_id)}`;
+      return NextResponse.json({ success: true });
+    }
+
     if (action === "complete") {
       const { 
         match_id, 

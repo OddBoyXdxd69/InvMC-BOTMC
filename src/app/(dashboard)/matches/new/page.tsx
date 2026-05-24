@@ -277,7 +277,7 @@ export default function NewMatchPage({ searchParams }: { searchParams: Promise<{
                   onChange={(e) => setOvers(Number(e.target.value))}
                   className="flex h-12 w-full rounded-xl border border-slate-800 bg-slate-900/40 px-4 py-2 text-sm text-slate-100 focus-visible:outline-none focus:border-emerald-500 focus-visible:ring-2 focus-visible:ring-emerald-500/25 transition-all duration-300 cursor-pointer"
                 >
-                  {[3, 4, 5, 6, 7, 10, 12, 15, 20].map((ov) => (
+                  {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 12, 15, 20].map((ov) => (
                     <option key={ov} value={ov}>
                       {ov} Overs
                     </option>

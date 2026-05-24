@@ -422,6 +422,28 @@ export default function LiveScorerPage({ params }: { params: Promise<{ id: strin
   const getStrikeRate = (runs: number, b: number) => (b === 0 ? "0.0" : ((runs / b) * 100).toFixed(1));
   const getOvers = (b: number) => `${Math.floor(b / 6)}.${b % 6}`;
 
+  const handleUpdateOversLimit = async (newLimit: number) => {
+    if (!lineup) return;
+    const updatedLineup = { ...lineup, oversLimit: newLimit };
+    setLineup(updatedLineup);
+    localStorage.setItem(`match_lineup_${matchId}`, JSON.stringify(updatedLineup));
+
+    try {
+      await fetch("/api/matches", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "reduce_overs", match_id: Number(matchId), overs_limit: newLimit })
+      });
+    } catch (err) {
+      console.error("Failed to update overs limit in DB:", err);
+    }
+
+    const limitBalls = newLimit * 6;
+    if (balls >= limitBalls) {
+      handleInningsComplete(score, wickets, balls, batsmenStats, bowlerStats);
+    }
+  };
+
   const requiredRuns = innings === 2 ? (innings1Total + 1) - score : 0;
   const totalBalls = lineup ? (lineup.oversLimit * 6) : 0;
   const remBalls = totalBalls - balls;
@@ -1185,6 +1207,25 @@ export default function LiveScorerPage({ params }: { params: Promise<{ id: strin
                 </div>
                 <div><label className="text-[10px] font-black text-indigo-500 uppercase tracking-widest block mb-3">Non-Striker</label>
                   <div className="grid grid-cols-1 gap-2">{(innings === 1 ? lineup.teamAPlayerIds : lineup.teamBPlayerIds).map(id => (<button key={id} disabled={batsmenStats[id]?.out && id !== nonStrikerId} onClick={() => { if (id === strikerId) setStrikerId(nonStrikerId); setNonStrikerId(id); setBatsmenStats(prev => ({ ...prev, [id]: prev[id] || { playerId: id, runs: 0, balls: 0, fours: 0, sixes: 0, out: false } })); }} className={`p-3 rounded-xl border text-xs font-bold transition-all cursor-pointer active:scale-98 duration-75 ${id === nonStrikerId ? "border-indigo-500 bg-indigo-550/10 text-white" : "border-slate-800 text-slate-550 hover:border-slate-700"}`}>{playersMap[id]?.name}</button>))}</div>
+                </div>
+                <div className="border-t border-slate-800 pt-6">
+                  <label className="text-[10px] font-black text-amber-500 uppercase tracking-widest block mb-3">Reduce Overs Limit</label>
+                  <div className="grid grid-cols-4 gap-2 mb-4">
+                    {[1, 2, 3, 4, 5, 6, 7].map((ov) => (
+                      <button
+                        key={ov}
+                        type="button"
+                        onClick={() => handleUpdateOversLimit(ov)}
+                        className={`p-2.5 rounded-xl border text-xs font-bold transition-all cursor-pointer active:scale-98 duration-75 ${
+                          lineup.oversLimit === ov
+                            ? "border-amber-500 bg-amber-500/10 text-white"
+                            : "border-slate-800 text-slate-400 hover:border-slate-700"
+                        }`}
+                      >
+                        {ov} Ov
+                      </button>
+                    ))}
+                  </div>
                 </div>
                 <button onClick={() => setShowSettings(false)} className="w-full py-4 rounded-2xl bg-slate-800 text-white font-black uppercase tracking-widest hover:bg-slate-700 transition-all cursor-pointer active:scale-98 duration-75">Done</button>
               </div>

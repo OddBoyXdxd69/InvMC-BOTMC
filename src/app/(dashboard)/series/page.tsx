@@ -537,7 +537,7 @@ export default function SeriesPage() {
                           onChange={(e) => setOvers(Number(e.target.value))}
                           className="flex h-12 w-full rounded-xl border border-slate-800 bg-slate-950 px-4 py-3 text-sm text-slate-100 focus:outline-none focus:border-emerald-500"
                         >
-                          {[1, 2, 3, 5, 8, 10, 12, 15, 20].map(o => (
+                          {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 12, 15, 20].map(o => (
                             <option key={o} value={o}>{o} Overs</option>
                           ))}
                         </select>
