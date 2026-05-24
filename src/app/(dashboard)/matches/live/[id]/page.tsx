@@ -117,6 +117,12 @@ export default function LiveScorerPage({ params }: { params: Promise<{ id: strin
 
   const [showTieModal, setShowTieModal] = useState(false);
 
+  // States for wickets on extras (wides/no-balls)
+  const [showExtraWicketFlow, setShowExtraWicketFlow] = useState<boolean>(false);
+  const [extraWicketType, setExtraWicketType] = useState<"run_out" | "stumped">("run_out");
+  const [extraWicketBatsmanId, setExtraWicketBatsmanId] = useState<number | null>(null);
+  const [extraWicketRuns, setExtraWicketRuns] = useState<number>(0);
+
   // Helper temporary stores for Innings 1 stats
   const [finalInnings1Batsmen, setFinalInnings1Batsmen] = useState<Record<number, BatsmanState>>({});
   const [finalInnings1Bowlers, setFinalInnings1Bowlers] = useState<Record<number, BowlerState>>({});
@@ -329,6 +335,230 @@ export default function LiveScorerPage({ params }: { params: Promise<{ id: strin
       if (waitingPlayers.length === 0 && lineup.singleMan) { setStrikerId(finalStrikerId || finalNonStrikerId); setNonStrikerId(null); if (wasOversEnd) { setLastBowlerId(currentBowlerId); setShowBowlerSelect(true); } }
       else { if (wasOversEnd) { setLastBowlerId(currentBowlerId); if (slotToFill === "striker") { setStrikerId(finalNonStrikerId); setNonStrikerId(null); setReplacingSlot("non-striker"); } else { setStrikerId(null); setNonStrikerId(finalStrikerId); setReplacingSlot("striker"); } setShowNextBatsmanSelect(true); setShowBowlerSelect(true); }
       else { setStrikerId(finalStrikerId); setNonStrikerId(finalNonStrikerId); setReplacingSlot(slotToFill); setShowNextBatsmanSelect(true); } }
+    }
+  };
+
+  const handleConfirmExtraWicket = () => {
+    if (!strikerId || !currentBowlerId || !lineup || !showExtraType) return;
+
+    const extraType = showExtraType;
+    const isStumped = extraWicketType === "stumped";
+    const dismissedId = isStumped ? strikerId : extraWicketBatsmanId;
+    if (!dismissedId) return;
+
+    saveHistory();
+    setShowExtraWicketFlow(false);
+    setShowExtraType(null);
+
+    const newWickets = wickets + 1;
+    const updatedBatsmen = { ...batsmenStats };
+    const updatedBowlers = { ...bowlerStats };
+    const striker = { ...updatedBatsmen[strikerId] };
+    const nonStriker = nonStrikerId ? { ...updatedBatsmen[nonStrikerId] } : null;
+    const bowler = { ...updatedBowlers[currentBowlerId] };
+
+    let addedRuns = extraWicketRuns;
+    let extraRuns = 1;
+    let isBowlerWicket = isStumped;
+
+    let overSymbol = "";
+    const finalRuns = addedRuns + extraRuns;
+
+    if (extraType === "wide") {
+      setScore((prev) => prev + finalRuns);
+      bowler.runs += finalRuns;
+      if (isStumped) {
+        striker.out = true;
+        striker.wicketHow = "stumped";
+        bowler.wickets += 1;
+        overSymbol = "Wd+W";
+      } else {
+        if (dismissedId === strikerId) {
+          striker.out = true;
+          striker.wicketHow = "run_out";
+        } else if (nonStriker && dismissedId === nonStrikerId) {
+          nonStriker.out = true;
+          nonStriker.wicketHow = "run_out";
+        }
+        overSymbol = addedRuns > 0 ? `${addedRuns}Wd+W` : "Wd+W";
+      }
+    } else if (extraType === "noball") {
+      setScore((prev) => prev + finalRuns);
+      bowler.runs += finalRuns;
+      
+      striker.balls += 1;
+      striker.runs += addedRuns;
+      if (addedRuns === 4) striker.fours++;
+      if (addedRuns === 6) striker.sixes++;
+
+      if (dismissedId === strikerId) {
+        striker.out = true;
+        striker.wicketHow = "run_out";
+      } else if (nonStriker && dismissedId === nonStrikerId) {
+        nonStriker.out = true;
+        nonStriker.wicketHow = "run_out";
+      }
+      overSymbol = addedRuns > 0 ? `${addedRuns}Nb+W` : "Nb+W";
+    }
+
+    updatedBatsmen[strikerId] = striker;
+    if (nonStrikerId && nonStriker) {
+      updatedBatsmen[nonStrikerId] = nonStriker;
+    }
+    updatedBowlers[currentBowlerId] = bowler;
+
+    setWickets(newWickets);
+    setBatsmenStats(updatedBatsmen);
+    setBowlerStats(updatedBowlers);
+    setOverHistory((prev) => [...prev, overSymbol]);
+
+    const newEntry: BallLogEntry = {
+      innings,
+      over: Math.floor(balls / 6),
+      ball: (balls % 6) + 1,
+      strikerName: playersMap[strikerId]?.name || "Batsman",
+      bowlerName: playersMap[currentBowlerId]?.name || "Bowler",
+      bowlerId: currentBowlerId,
+      runs: extraType === "noball" ? addedRuns : 0,
+      extra: extraType,
+      isWicket: true,
+      wicketHow: isStumped ? "stumped" : "run_out",
+      isDot: addedRuns === 0
+    };
+
+    const newLogs = [...ballsLog, newEntry];
+    setBallsLog(newLogs);
+
+    if (isBowlerWicket && checkForHattrick(newLogs, currentBowlerId)) {
+      bowler.hatricks += 1;
+      alert(`HAT-TRICK! Amazing bowling by ${playersMap[currentBowlerId]?.name}!`);
+    }
+
+    const squadIds = innings === 1 ? lineup.teamAPlayerIds : lineup.teamBPlayerIds;
+    const teamSize = squadIds.length;
+    const maxWickets = lineup.singleMan ? teamSize : teamSize - 1;
+
+    if (newWickets >= maxWickets) {
+      handleInningsComplete(score + finalRuns, newWickets, balls, updatedBatsmen, updatedBowlers);
+    } else {
+      if (lineup.singleManMode) {
+        setStrikerId(null);
+        setNonStrikerId(null);
+        setReplacingSlot("striker");
+        setShowNextBatsmanSelect(true);
+        return;
+      }
+
+      let finalStrikerId: number | null = null;
+      let finalNonStrikerId: number | null = null;
+      let slotToFill: "striker" | "non-striker" = "striker";
+
+      const isOddRuns = addedRuns % 2 !== 0;
+
+      if (dismissedId === strikerId) {
+        if (isOddRuns) {
+          finalStrikerId = nonStrikerId;
+          finalNonStrikerId = null;
+          slotToFill = "non-striker";
+        } else {
+          finalStrikerId = null;
+          finalNonStrikerId = nonStrikerId;
+          slotToFill = "striker";
+        }
+      } else {
+        if (isOddRuns) {
+          finalStrikerId = null;
+          finalNonStrikerId = strikerId;
+          slotToFill = "striker";
+        } else {
+          finalStrikerId = strikerId;
+          finalNonStrikerId = null;
+          slotToFill = "non-striker";
+        }
+      }
+
+      const waitingPlayers = squadIds.filter(
+        (id) => !updatedBatsmen[id]?.out && id !== finalStrikerId && id !== finalNonStrikerId
+      );
+
+      if (waitingPlayers.length === 0 && lineup.singleMan) {
+        setStrikerId(finalStrikerId || finalNonStrikerId);
+        setNonStrikerId(null);
+      } else {
+        setStrikerId(finalStrikerId);
+        setNonStrikerId(finalNonStrikerId);
+        setReplacingSlot(slotToFill);
+        setShowNextBatsmanSelect(true);
+      }
+    }
+  };
+
+  const handleRetireBatsman = (playerId: number, type: "retired_hurt" | "retired_out") => {
+    if (!lineup) return;
+    if (!confirm(`Are you sure you want to retire ${playersMap[playerId]?.name} as ${type === "retired_hurt" ? "Retired Hurt" : "Retired Out"}?`)) return;
+
+    saveHistory();
+    setShowSettings(false);
+
+    const updatedBatsmen = { ...batsmenStats };
+    const batsman = { ...updatedBatsmen[playerId] };
+    batsman.out = true;
+    batsman.wicketHow = type;
+    updatedBatsmen[playerId] = batsman;
+
+    let newWickets = wickets;
+    if (type === "retired_out") {
+      newWickets += 1;
+      setWickets(newWickets);
+    }
+
+    setBatsmenStats(updatedBatsmen);
+
+    const newEntry: BallLogEntry = {
+      innings,
+      over: Math.floor(balls / 6),
+      ball: (balls % 6) + 1,
+      strikerName: playersMap[playerId]?.name || "Batsman",
+      bowlerName: currentBowlerId ? playersMap[currentBowlerId]?.name || "Bowler" : "Bowler",
+      bowlerId: currentBowlerId || 0,
+      runs: 0,
+      extra: type === "retired_hurt" ? "six_out" : "common_out",
+      isWicket: type === "retired_out",
+      wicketHow: type,
+      isDot: true
+    };
+    setBallsLog((prev) => [...prev, newEntry]);
+
+    const squadIds = innings === 1 ? lineup.teamAPlayerIds : lineup.teamBPlayerIds;
+    const teamSize = squadIds.length;
+    const maxWickets = lineup.singleMan ? teamSize : teamSize - 1;
+
+    if (newWickets >= maxWickets) {
+      handleInningsComplete(score, newWickets, balls, updatedBatsmen, bowlerStats);
+    } else {
+      if (playerId === strikerId) {
+        if (lineup.singleManMode) {
+          setStrikerId(null);
+          setNonStrikerId(null);
+          setReplacingSlot("striker");
+          setShowNextBatsmanSelect(true);
+        } else {
+          setStrikerId(null);
+          setReplacingSlot("striker");
+          setShowNextBatsmanSelect(true);
+        }
+      } else if (playerId === nonStrikerId) {
+        if (lineup.singleManMode) {
+          setStrikerId(null);
+          setNonStrikerId(null);
+          setReplacingSlot("striker");
+          setShowNextBatsmanSelect(true);
+        } else {
+          setNonStrikerId(null);
+          setReplacingSlot("non-striker");
+          setShowNextBatsmanSelect(true);
+        }
+      }
     }
   };
 
@@ -1118,34 +1348,172 @@ export default function LiveScorerPage({ params }: { params: Promise<{ id: strin
       <AnimatePresence>
         {showExtraType && (
           <div className="fixed inset-0 z-[60] flex items-center justify-center p-4">
-            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="absolute inset-0 bg-black/80 backdrop-blur-md" onClick={() => setShowExtraType(null)} />
+            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="absolute inset-0 bg-black/80 backdrop-blur-md" onClick={() => { setShowExtraType(null); setShowExtraWicketFlow(false); }} />
             <motion.div initial={{ opacity: 0, scale: 0.9, y: 20 }} animate={{ opacity: 1, scale: 1, y: 0 }} exit={{ opacity: 0, scale: 0.9, y: 20 }} className="relative w-full max-w-sm bg-slate-900 border border-amber-500/30 p-6 sm:p-8 rounded-3xl sm:rounded-[2rem] shadow-2xl z-10">
-              <h3 className="text-xl font-black text-amber-400 mb-5 flex items-center gap-3 uppercase tracking-tighter"><Plus className="w-6 h-6" /> {showExtraType} Extra</h3>
-              <div className="grid grid-cols-2 gap-3">
-                {(showExtraType === "bye" ? [1, 2, 3, 4] : [0, 1, 2, 3, 4]).map((r) => {
-                  let mainLabel = `${r}`;
-                  let subLabel = "Runs";
-                  if (showExtraType === "wide" || showExtraType === "noball") {
-                    mainLabel = `+${r}`;
-                    subLabel = `${r + 1} Run${r + 1 !== 1 ? 's' : ''} Total`;
-                  } else if (showExtraType === "bye") {
-                    mainLabel = `${r}`;
-                    subLabel = `${r} Bye${r !== 1 ? 's' : ''}`;
-                  }
-                  return (
-                    <button 
-                      key={r} 
-                      onClick={() => { handleScoreBall(r, showExtraType); setShowExtraType(null); }} 
+              {!showExtraWicketFlow ? (
+                <>
+                  <h3 className="text-xl font-black text-amber-400 mb-5 flex items-center gap-3 uppercase tracking-tighter"><Plus className="w-6 h-6" /> {showExtraType} Extra</h3>
+                  <div className="grid grid-cols-2 gap-3">
+                    {(showExtraType === "bye" ? [1, 2, 3, 4] : [0, 1, 2, 3, 4]).map((r) => {
+                      let mainLabel = `${r}`;
+                      let subLabel = "Runs";
+                      if (showExtraType === "wide" || showExtraType === "noball") {
+                        mainLabel = `+${r}`;
+                        subLabel = `${r + 1} Run${r + 1 !== 1 ? 's' : ''} Total`;
+                      } else if (showExtraType === "bye") {
+                        mainLabel = `${r}`;
+                        subLabel = `${r} Bye${r !== 1 ? 's' : ''}`;
+                      }
+                      return (
+                        <button 
+                          key={r} 
+                          onClick={() => { handleScoreBall(r, showExtraType); setShowExtraType(null); }} 
+                          style={{ touchAction: 'manipulation' }}
+                          className="h-20 rounded-2xl border border-amber-500/20 bg-slate-950 text-amber-305 font-black hover:bg-amber-500/10 flex flex-col items-center justify-center p-2 transition-all cursor-pointer active:scale-95 duration-75"
+                        >
+                          <span className="text-xl font-extrabold">{mainLabel}</span>
+                          <span className="text-[7.5px] text-amber-500/60 uppercase font-black tracking-wider mt-1">{subLabel}</span>
+                        </button>
+                      );
+                    })}
+                    {(showExtraType === "wide" || showExtraType === "noball") && (
+                      <button 
+                        onClick={() => {
+                          setShowExtraWicketFlow(true);
+                          setExtraWicketType(showExtraType === "noball" ? "run_out" : "stumped");
+                          setExtraWicketBatsmanId(strikerId);
+                          setExtraWicketRuns(0);
+                        }}
+                        style={{ touchAction: 'manipulation' }}
+                        className="col-span-2 h-14 rounded-2xl border border-rose-500/30 bg-rose-950/20 text-rose-500 font-black text-xs uppercase tracking-widest hover:bg-rose-950/40 transition-all cursor-pointer active:scale-95 duration-75 flex items-center justify-center gap-2"
+                      >
+                        <AlertTriangle className="w-4 h-4 text-rose-500 animate-pulse" />
+                        Record Wicket / Out
+                      </button>
+                    )}
+                    <button onClick={() => { setShowExtraType(null); setShowExtraWicketFlow(false); }} className="col-span-2 h-14 rounded-2xl border border-slate-800 text-slate-500 font-black text-xs uppercase tracking-widest hover:text-white transition-all cursor-pointer active:scale-95 duration-75">Cancel</button>
+                  </div>
+                </>
+              ) : (
+                <div className="space-y-6">
+                  <div>
+                    <h3 className="text-xl font-black text-rose-500 uppercase tracking-tighter flex items-center gap-2">
+                      <AlertTriangle className="w-5 h-5 text-rose-500 animate-bounce" />
+                      Wicket on {showExtraType === "wide" ? "Wide" : "No Ball"}
+                    </h3>
+                    <p className="text-[10px] text-slate-500 font-bold uppercase tracking-wider mt-1">Configure the wicket details</p>
+                  </div>
+
+                  <div className="space-y-2">
+                    <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest block">Wicket Type</label>
+                    <div className="flex gap-2">
+                      {showExtraType === "wide" && (
+                        <button
+                          type="button"
+                          onClick={() => setExtraWicketType("stumped")}
+                          style={{ touchAction: 'manipulation' }}
+                          className={`flex-1 p-3 rounded-xl border text-xs font-black uppercase tracking-wider transition-all cursor-pointer active:scale-95 duration-75 ${
+                            extraWicketType === "stumped" 
+                              ? "bg-rose-500/10 border-rose-500/40 text-rose-450" 
+                              : "bg-slate-905 border-slate-850 text-slate-400 hover:border-slate-700"
+                          }`}
+                        >
+                          Stumped
+                        </button>
+                      )}
+                      <button
+                        type="button"
+                        onClick={() => setExtraWicketType("run_out")}
+                        style={{ touchAction: 'manipulation' }}
+                        className={`flex-1 p-3 rounded-xl border text-xs font-black uppercase tracking-wider transition-all cursor-pointer active:scale-95 duration-75 ${
+                          extraWicketType === "run_out" || showExtraType === "noball"
+                            ? "bg-rose-500/10 border-rose-500/40 text-rose-450" 
+                            : "bg-slate-905 border-slate-850 text-slate-400 hover:border-slate-700"
+                        }`}
+                      >
+                        Run Out
+                      </button>
+                    </div>
+                  </div>
+
+                  {extraWicketType === "run_out" && (
+                    <div className="space-y-2">
+                      <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest block">Who is out?</label>
+                      <div className="flex gap-2">
+                        {strikerId && (
+                          <button
+                            type="button"
+                            onClick={() => setExtraWicketBatsmanId(strikerId)}
+                            style={{ touchAction: 'manipulation' }}
+                            className={`flex-1 p-3 rounded-xl border text-xs font-black uppercase tracking-wider transition-all cursor-pointer active:scale-95 duration-75 ${
+                              extraWicketBatsmanId === strikerId 
+                                ? "bg-rose-500/10 border-rose-500/40 text-rose-450" 
+                                : "bg-slate-905 border-slate-850 text-slate-400 hover:border-slate-700"
+                            }`}
+                          >
+                            {playersMap[strikerId]?.name} (Striker)
+                          </button>
+                        )}
+                        {nonStrikerId && (
+                          <button
+                            type="button"
+                            onClick={() => setExtraWicketBatsmanId(nonStrikerId)}
+                            style={{ touchAction: 'manipulation' }}
+                            className={`flex-1 p-3 rounded-xl border text-xs font-black uppercase tracking-wider transition-all cursor-pointer active:scale-95 duration-75 ${
+                              extraWicketBatsmanId === nonStrikerId 
+                                ? "bg-rose-500/10 border-rose-500/40 text-rose-450" 
+                                : "bg-slate-905 border-slate-850 text-slate-400 hover:border-slate-700"
+                            }`}
+                          >
+                            {playersMap[nonStrikerId]?.name} (Non-Striker)
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                  )}
+
+                  <div className="space-y-2">
+                    <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest block">Runs Completed (excluding Extra)</label>
+                    <div className="grid grid-cols-5 gap-2">
+                      {[0, 1, 2, 3, 4].map((r) => (
+                        <button
+                          key={r}
+                          type="button"
+                          disabled={extraWicketType === "stumped"}
+                          onClick={() => setExtraWicketRuns(r)}
+                          style={{ touchAction: 'manipulation' }}
+                          className={`h-11 rounded-xl border text-xs font-bold transition-all cursor-pointer flex items-center justify-center active:scale-95 duration-75 disabled:opacity-20 ${
+                            extraWicketRuns === r && extraWicketType !== "stumped"
+                              ? "bg-indigo-500/20 border-indigo-500/45 text-white font-black" 
+                              : "bg-slate-905 border-slate-850 text-slate-400 hover:border-slate-800"
+                          }`}
+                        >
+                          {r}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+
+                  <div className="flex gap-3 pt-2">
+                    <button
+                      type="button"
+                      onClick={() => setShowExtraWicketFlow(false)}
                       style={{ touchAction: 'manipulation' }}
-                      className="h-20 rounded-2xl border border-amber-500/20 bg-slate-950 text-amber-305 font-black hover:bg-amber-500/10 flex flex-col items-center justify-center p-2 transition-all cursor-pointer active:scale-95 duration-75"
+                      className="flex-1 h-12 rounded-xl border border-slate-800 text-slate-400 hover:text-white text-xs font-bold uppercase tracking-wider cursor-pointer active:scale-95 duration-75"
                     >
-                      <span className="text-xl font-extrabold">{mainLabel}</span>
-                      <span className="text-[7.5px] text-amber-500/60 uppercase font-black tracking-wider mt-1">{subLabel}</span>
+                      Back
                     </button>
-                  );
-                })}
-                <button onClick={() => setShowExtraType(null)} className="col-span-2 h-14 rounded-2xl border border-slate-800 text-slate-500 font-black text-xs uppercase tracking-widest hover:text-white transition-all cursor-pointer active:scale-95 duration-75">Cancel</button>
-              </div>
+                    <button
+                      type="button"
+                      onClick={handleConfirmExtraWicket}
+                      style={{ touchAction: 'manipulation' }}
+                      className="flex-1 h-12 rounded-xl bg-rose-600 hover:bg-rose-500 text-white text-xs font-black uppercase tracking-wider shadow-lg cursor-pointer active:scale-95 duration-75"
+                    >
+                      Confirm Out
+                    </button>
+                  </div>
+                </div>
+              )}
             </motion.div>
           </div>
         )}
@@ -1202,6 +1570,63 @@ export default function LiveScorerPage({ params }: { params: Promise<{ id: strin
             <motion.div initial={{ opacity: 0, scale: 0.95, y: 15 }} animate={{ opacity: 1, scale: 1, y: 0 }} exit={{ opacity: 0, scale: 0.95, y: 15 }} className="relative w-full max-w-md bg-slate-900 border border-slate-800 p-5 sm:p-8 rounded-3xl sm:rounded-[2.5rem] shadow-2xl z-10 overflow-y-auto max-h-[90vh]">
               <h3 className="text-lg font-black text-white mb-6 uppercase tracking-tighter">Match Settings</h3>
               <div className="space-y-6">
+                {/* Active Batsmen and Retire options */}
+                <div className="border-b border-slate-800 pb-6">
+                  <label className="text-[10px] font-black text-rose-500 uppercase tracking-widest block mb-3">Active Batsmen / Leave Match</label>
+                  <div className="space-y-3">
+                    {strikerId && (
+                      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center p-3.5 rounded-xl bg-slate-950 border border-slate-850 gap-2">
+                        <span className="text-xs font-bold text-white flex items-center gap-1.5">
+                          <span>🏏</span>
+                          <span className="truncate max-w-[150px]">{playersMap[strikerId]?.name}</span>
+                          <span className="text-[9px] px-1.5 py-0.5 rounded bg-emerald-500/10 text-emerald-400 font-bold uppercase">Striker</span>
+                        </span>
+                        <div className="flex gap-2 w-full sm:w-auto">
+                          <button
+                            type="button"
+                            onClick={() => handleRetireBatsman(strikerId, "retired_hurt")}
+                            className="flex-1 sm:flex-none px-3 py-1.5 rounded-lg bg-amber-500/10 border border-amber-500/30 text-amber-500 hover:bg-amber-500/20 text-[9px] font-black uppercase tracking-wider transition-all cursor-pointer active:scale-95"
+                          >
+                            Retire Hurt
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => handleRetireBatsman(strikerId, "retired_out")}
+                            className="flex-1 sm:flex-none px-3 py-1.5 rounded-lg bg-rose-500/10 border border-rose-500/30 text-rose-500 hover:bg-rose-500/20 text-[9px] font-black uppercase tracking-wider transition-all cursor-pointer active:scale-95"
+                          >
+                            Retire Out (Wkt)
+                          </button>
+                        </div>
+                      </div>
+                    )}
+                    {nonStrikerId && (
+                      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center p-3.5 rounded-xl bg-slate-950 border border-slate-850 gap-2">
+                        <span className="text-xs font-bold text-white flex items-center gap-1.5">
+                          <span>🏃</span>
+                          <span className="truncate max-w-[150px]">{playersMap[nonStrikerId]?.name}</span>
+                          <span className="text-[9px] px-1.5 py-0.5 rounded bg-indigo-500/10 text-indigo-400 font-bold uppercase">Non-Striker</span>
+                        </span>
+                        <div className="flex gap-2 w-full sm:w-auto">
+                          <button
+                            type="button"
+                            onClick={() => handleRetireBatsman(nonStrikerId, "retired_hurt")}
+                            className="flex-1 sm:flex-none px-3 py-1.5 rounded-lg bg-amber-500/10 border border-amber-500/30 text-amber-500 hover:bg-amber-500/20 text-[9px] font-black uppercase tracking-wider transition-all cursor-pointer active:scale-95"
+                          >
+                            Retire Hurt
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => handleRetireBatsman(nonStrikerId, "retired_out")}
+                            className="flex-1 sm:flex-none px-3 py-1.5 rounded-lg bg-rose-500/10 border border-rose-500/30 text-rose-500 hover:bg-rose-500/20 text-[9px] font-black uppercase tracking-wider transition-all cursor-pointer active:scale-95"
+                          >
+                            Retire Out (Wkt)
+                          </button>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                </div>
+
                 <div><label className="text-[10px] font-black text-emerald-500 uppercase tracking-widest block mb-3">Striker</label>
                   <div className="grid grid-cols-1 gap-2">{(innings === 1 ? lineup.teamAPlayerIds : lineup.teamBPlayerIds).map(id => (<button key={id} disabled={batsmenStats[id]?.out && id !== strikerId} onClick={() => { if (id === nonStrikerId) setNonStrikerId(strikerId); setStrikerId(id); setBatsmenStats(prev => ({ ...prev, [id]: prev[id] || { playerId: id, runs: 0, balls: 0, fours: 0, sixes: 0, out: false } })); }} className={`p-3 rounded-xl border text-xs font-bold transition-all cursor-pointer active:scale-98 duration-75 ${id === strikerId ? "border-emerald-500 bg-emerald-500/10 text-white" : "border-slate-800 text-slate-500 hover:border-slate-700"}`}>{playersMap[id]?.name}</button>))}</div>
                 </div>
