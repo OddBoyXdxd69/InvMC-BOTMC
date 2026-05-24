@@ -84,14 +84,18 @@ export const initDB = async () => {
       team_b_name TEXT NOT NULL,
       team_a_player_ids TEXT NOT NULL,
       team_b_player_ids TEXT NOT NULL,
+      common_player_ids TEXT,
       overs_limit INTEGER NOT NULL,
       bowler_overs_limit INTEGER DEFAULT 0,
+      single_man INTEGER DEFAULT 1,
       single_man_mode INTEGER DEFAULT 0,
       status TEXT NOT NULL DEFAULT 'active' CHECK(status IN ('active', 'completed')),
       created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
     );
   `;
   await sql`ALTER TABLE matches ADD COLUMN IF NOT EXISTS series_id INTEGER REFERENCES series(id) ON DELETE SET NULL`;
+  await sql`ALTER TABLE series ADD COLUMN IF NOT EXISTS single_man INTEGER DEFAULT 1`;
+  await sql`ALTER TABLE series ADD COLUMN IF NOT EXISTS common_player_ids TEXT`;
 };
 
 export default sql;

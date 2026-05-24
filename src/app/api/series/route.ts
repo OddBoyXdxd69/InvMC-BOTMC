@@ -19,8 +19,10 @@ interface SeriesRow {
   team_b_name: string;
   team_a_player_ids: string;
   team_b_player_ids: string;
+  common_player_ids?: string;
   overs_limit: number;
   bowler_overs_limit: number;
+  single_man?: number;
   single_man_mode: number;
   status: string;
   created_at: string;
@@ -46,10 +48,12 @@ export async function GET(request: Request) {
 
       const team_a_ids: number[] = JSON.parse(series.team_a_player_ids || "[]");
       const team_b_ids: number[] = JSON.parse(series.team_b_player_ids || "[]");
+      const common_ids: number[] = JSON.parse(series.common_player_ids || "[]");
 
       const all_players = (await sql`SELECT id, name, role FROM players`) as PlayerRow[];
       const team_a_squad = all_players.filter((p: PlayerRow) => team_a_ids.includes(p.id));
       const team_b_squad = all_players.filter((p: PlayerRow) => team_b_ids.includes(p.id));
+      const common_squad = all_players.filter((p: PlayerRow) => common_ids.includes(p.id));
 
       const matches = (await sql`SELECT * FROM matches WHERE series_id = ${series_id} ORDER BY id DESC`) as MatchRow[];
 
@@ -60,6 +64,7 @@ export async function GET(request: Request) {
         series,
         team_a_squad,
         team_b_squad,
+        common_squad,
         matches,
         team_a_wins,
         team_b_wins
@@ -93,7 +98,7 @@ export async function POST(request: Request) {
     const { action } = body;
 
     if (action === "create") {
-      const { name, team_a_name, team_b_name, team_a_player_ids, team_b_player_ids, overs_limit, bowler_overs_limit, single_man_mode } = body;
+      const { name, team_a_name, team_b_name, team_a_player_ids, team_b_player_ids, common_player_ids, overs_limit, bowler_overs_limit, single_man, single_man_mode } = body;
 
       if (!name || !team_a_name || !team_b_name || !team_a_player_ids || !team_b_player_ids || !overs_limit) {
         return NextResponse.json({ error: "Missing required fields" }, { status: 400 });
@@ -101,14 +106,14 @@ export async function POST(request: Request) {
 
       const result = await sql`
         INSERT INTO series (
-          name, team_a_name, team_b_name, team_a_player_ids, team_b_player_ids, 
-          overs_limit, bowler_overs_limit, single_man_mode, status
+          name, team_a_name, team_b_name, team_a_player_ids, team_b_player_ids, common_player_ids, 
+          overs_limit, bowler_overs_limit, single_man, single_man_mode, status
         )
         VALUES (
           ${name.trim()}, ${team_a_name.trim()}, ${team_b_name.trim()}, 
-          ${JSON.stringify(team_a_player_ids)}, ${JSON.stringify(team_b_player_ids)}, 
+          ${JSON.stringify(team_a_player_ids)}, ${JSON.stringify(team_b_player_ids)}, ${JSON.stringify(common_player_ids || [])}, 
           ${Number(overs_limit)}, ${Number(bowler_overs_limit || 0)}, 
-          ${Number(single_man_mode || 0)}, 'active'
+          ${single_man ? 1 : 0}, ${Number(single_man_mode || 0)}, 'active'
         )
         RETURNING id
       `;
@@ -117,7 +122,7 @@ export async function POST(request: Request) {
     }
 
     if (action === "update") {
-      const { id, name, team_a_name, team_b_name, team_a_player_ids, team_b_player_ids, overs_limit, bowler_overs_limit, single_man_mode, status } = body;
+      const { id, name, team_a_name, team_b_name, team_a_player_ids, team_b_player_ids, common_player_ids, overs_limit, bowler_overs_limit, single_man, single_man_mode, status } = body;
 
       if (!id || !name || !team_a_name || !team_b_name || !team_a_player_ids || !team_b_player_ids || !overs_limit) {
         return NextResponse.json({ error: "Missing required fields for update" }, { status: 400 });
@@ -130,8 +135,10 @@ export async function POST(request: Request) {
             team_b_name = ${team_b_name.trim()},
             team_a_player_ids = ${JSON.stringify(team_a_player_ids)},
             team_b_player_ids = ${JSON.stringify(team_b_player_ids)},
+            common_player_ids = ${JSON.stringify(common_player_ids || [])},
             overs_limit = ${Number(overs_limit)},
             bowler_overs_limit = ${Number(bowler_overs_limit || 0)},
+            single_man = ${single_man ? 1 : 0},
             single_man_mode = ${Number(single_man_mode || 0)},
             status = ${status || 'active'}
         WHERE id = ${Number(id)}

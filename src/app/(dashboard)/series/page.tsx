@@ -12,7 +12,9 @@ import {
   X,
   Check,
   ChevronDown,
-  ChevronUp
+  ChevronUp,
+  ArrowLeftRight,
+  Users
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 
@@ -44,8 +46,10 @@ interface Series {
   team_b_name: string;
   team_a_player_ids: string; // JSON string
   team_b_player_ids: string; // JSON string
+  common_player_ids?: string; // JSON string
   overs_limit: number;
   bowler_overs_limit: number;
+  single_man?: number;
   single_man_mode: number;
   status: string;
   created_at: string;
@@ -73,9 +77,11 @@ export default function SeriesPage() {
   const [teamBName, setTeamBName] = useState("Team B");
   const [overs, setOvers] = useState(5);
   const [bowlerLimit, setBowlerLimit] = useState(2);
+  const [singleMan, setSingleMan] = useState(true);
   const [singleManMode, setSingleManMode] = useState(false);
   const [teamAPlayers, setTeamAPlayers] = useState<number[]>([]);
   const [teamBPlayers, setTeamBPlayers] = useState<number[]>([]);
+  const [commonPlayers, setCommonPlayers] = useState<number[]>([]);
   
   const loadInitialData = async () => {
     try {
@@ -128,9 +134,11 @@ export default function SeriesPage() {
     setTeamBName("Team B");
     setOvers(5);
     setBowlerLimit(2);
+    setSingleMan(true);
     setSingleManMode(false);
     setTeamAPlayers([]);
     setTeamBPlayers([]);
+    setCommonPlayers([]);
     setEditingSeries(null);
     setShowCreateModal(true);
   };
@@ -142,29 +150,59 @@ export default function SeriesPage() {
     setTeamBName(series.team_b_name);
     setOvers(series.overs_limit);
     setBowlerLimit(series.bowler_overs_limit);
+    setSingleMan(series.single_man !== 0);
     setSingleManMode(series.single_man_mode === 1);
     setTeamAPlayers(JSON.parse(series.team_a_player_ids || "[]"));
     setTeamBPlayers(JSON.parse(series.team_b_player_ids || "[]"));
+    setCommonPlayers(JSON.parse(series.common_player_ids || "[]"));
     setShowCreateModal(true);
   };
 
-  const togglePlayerSelection = (team: "A" | "B", playerId: number) => {
+  const togglePlayerSelection = (team: "A" | "B" | "Common", playerId: number) => {
+    if (team === "Common") {
+      setCommonPlayers(prev => {
+        const isCurrentlyCommon = prev.includes(playerId);
+        if (isCurrentlyCommon) {
+          setTeamAPlayers(ta => ta.filter(id => id !== playerId));
+          setTeamBPlayers(tb => tb.filter(id => id !== playerId));
+          return prev.filter(id => id !== playerId);
+        } else {
+          setTeamAPlayers(ta => ta.includes(playerId) ? ta : [...ta, playerId]);
+          setTeamBPlayers(tb => tb.includes(playerId) ? tb : [...tb, playerId]);
+          return [...prev, playerId];
+        }
+      });
+      return;
+    }
+
     if (team === "A") {
-      setTeamAPlayers(prev => 
-        prev.includes(playerId) 
-          ? prev.filter(id => id !== playerId) 
-          : [...prev, playerId].filter(id => id !== playerId || !teamBPlayers.includes(playerId))
-      );
-      // Remove from Team B if selected for Team A (mutual exclusivity)
-      setTeamBPlayers(prev => prev.filter(id => id !== playerId));
+      setTeamAPlayers(prev => {
+        const isSelected = prev.includes(playerId);
+        if (isSelected) {
+          if (commonPlayers.includes(playerId)) {
+            setCommonPlayers(c => c.filter(id => id !== playerId));
+            setTeamBPlayers(tb => tb.filter(id => id !== playerId));
+          }
+          return prev.filter(id => id !== playerId);
+        } else {
+          if (teamBPlayers.includes(playerId) && !commonPlayers.includes(playerId)) return prev;
+          return [...prev, playerId];
+        }
+      });
     } else {
-      setTeamBPlayers(prev => 
-        prev.includes(playerId) 
-          ? prev.filter(id => id !== playerId) 
-          : [...prev, playerId].filter(id => id !== playerId || !teamAPlayers.includes(playerId))
-      );
-      // Remove from Team A if selected for Team B
-      setTeamAPlayers(prev => prev.filter(id => id !== playerId));
+      setTeamBPlayers(prev => {
+        const isSelected = prev.includes(playerId);
+        if (isSelected) {
+          if (commonPlayers.includes(playerId)) {
+            setCommonPlayers(c => c.filter(id => id !== playerId));
+            setTeamAPlayers(ta => ta.filter(id => id !== playerId));
+          }
+          return prev.filter(id => id !== playerId);
+        } else {
+          if (teamAPlayers.includes(playerId) && !commonPlayers.includes(playerId)) return prev;
+          return [...prev, playerId];
+        }
+      });
     }
   };
 
@@ -190,8 +228,10 @@ export default function SeriesPage() {
       team_b_name: teamBName.trim(),
       team_a_player_ids: teamAPlayers,
       team_b_player_ids: teamBPlayers,
+      common_player_ids: commonPlayers,
       overs_limit: Number(overs),
       bowler_overs_limit: Number(bowlerLimit),
+      single_man: singleMan,
       single_man_mode: singleManMode ? 1 : 0,
       status: editingSeries ? editingSeries.status : "active"
     };
@@ -488,61 +528,120 @@ export default function SeriesPage() {
                   </div>
 
                   {/* Format Settings */}
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-6 p-4 rounded-2xl bg-slate-950/40 border border-slate-850">
-                    <div className="space-y-2">
-                      <label className="text-xs font-semibold uppercase tracking-wider text-slate-400">Overs Limit</label>
-                      <select 
-                        value={overs}
-                        onChange={(e) => setOvers(Number(e.target.value))}
-                        className="flex h-12 w-full rounded-xl border border-slate-800 bg-slate-950 px-4 py-3 text-sm text-slate-100 focus:outline-none focus:border-emerald-500"
-                      >
-                        {[1, 2, 3, 5, 8, 10, 12, 15, 20].map(o => (
-                          <option key={o} value={o}>{o} Overs</option>
-                        ))}
-                      </select>
+                  <div className="space-y-6">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6 p-4 rounded-2xl bg-slate-950/40 border border-slate-850">
+                      <div className="space-y-2">
+                        <label className="text-xs font-semibold uppercase tracking-wider text-slate-400">Overs Limit</label>
+                        <select 
+                          value={overs}
+                          onChange={(e) => setOvers(Number(e.target.value))}
+                          className="flex h-12 w-full rounded-xl border border-slate-800 bg-slate-950 px-4 py-3 text-sm text-slate-100 focus:outline-none focus:border-emerald-500"
+                        >
+                          {[1, 2, 3, 5, 8, 10, 12, 15, 20].map(o => (
+                            <option key={o} value={o}>{o} Overs</option>
+                          ))}
+                        </select>
+                      </div>
+                      <div className="space-y-2">
+                        <label className="text-xs font-semibold uppercase tracking-wider text-slate-400">Bowler Limit</label>
+                        <select 
+                          value={bowlerLimit}
+                          onChange={(e) => setBowlerLimit(Number(e.target.value))}
+                          className="flex h-12 w-full rounded-xl border border-slate-800 bg-slate-950 px-4 py-3 text-sm text-slate-100 focus:outline-none focus:border-emerald-500"
+                        >
+                          {[1, 2, 3, 4, 5, 10].map(o => (
+                            <option key={o} value={o}>{o} Overs max</option>
+                          ))}
+                        </select>
+                      </div>
                     </div>
-                    <div className="space-y-2">
-                      <label className="text-xs font-semibold uppercase tracking-wider text-slate-400">Bowler Limit</label>
-                      <select 
-                        value={bowlerLimit}
-                        onChange={(e) => setBowlerLimit(Number(e.target.value))}
-                        className="flex h-12 w-full rounded-xl border border-slate-800 bg-slate-950 px-4 py-3 text-sm text-slate-100 focus:outline-none focus:border-emerald-500"
+
+                    {/* Sliding Toggles */}
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                      {/* Last Man Standing Toggle */}
+                      <div 
+                        onClick={() => setSingleMan(!singleMan)}
+                        className={`p-4 rounded-xl border transition-all cursor-pointer flex items-center justify-between group ${
+                          singleMan 
+                            ? "bg-emerald-500/10 border-emerald-500/30" 
+                            : "bg-slate-950/40 border-slate-800 hover:border-slate-700"
+                        }`}
                       >
-                        {[1, 2, 3, 4, 5, 10].map(o => (
-                          <option key={o} value={o}>{o} Overs max</option>
-                        ))}
-                      </select>
-                    </div>
-                    <div className="flex items-center gap-3 pt-6">
-                      <input 
-                        type="checkbox"
-                        id="singleManMode"
-                        checked={singleManMode}
-                        onChange={(e) => setSingleManMode(e.target.checked)}
-                        className="h-5 w-5 rounded bg-slate-950 border-slate-800 text-emerald-500 focus:ring-emerald-500"
-                      />
-                      <label htmlFor="singleManMode" className="text-xs font-semibold uppercase text-slate-350 cursor-pointer">
-                        Last Man Standing Mode
-                      </label>
+                        <div className="flex items-center gap-3">
+                          <div className={`w-10 h-10 rounded-lg flex items-center justify-center transition-colors ${
+                            singleMan ? "bg-emerald-500 text-white" : "bg-slate-800 text-slate-500"
+                          }`}>
+                            <Users className="w-5 h-5" />
+                          </div>
+                          <div>
+                            <p className={`text-sm font-bold ${singleMan ? "text-emerald-400" : "text-slate-300"}`}>
+                              Last Man Standing
+                            </p>
+                            <p className="text-[10px] text-slate-500 font-medium">
+                              {singleMan ? "Enabled: Last bats alone." : "Disabled: Standard rules."}
+                            </p>
+                          </div>
+                        </div>
+                        <div className={`w-12 h-6 rounded-full relative transition-colors ${
+                          singleMan ? "bg-emerald-600" : "bg-slate-700"
+                        }`}>
+                          <div className={`absolute top-1 w-4 h-4 rounded-full bg-white transition-all ${
+                            singleMan ? "left-7" : "left-1"
+                          }`} />
+                        </div>
+                      </div>
+
+                      {/* Single Man Mode Toggle */}
+                      <div 
+                        onClick={() => setSingleManMode(!singleManMode)}
+                        className={`p-4 rounded-xl border transition-all cursor-pointer flex items-center justify-between group ${
+                          singleManMode 
+                            ? "bg-amber-500/10 border-amber-500/30" 
+                            : "bg-slate-950/40 border-slate-800 hover:border-slate-700"
+                        }`}
+                      >
+                        <div className="flex items-center gap-3">
+                          <div className={`w-10 h-10 rounded-lg flex items-center justify-center transition-colors ${
+                            singleManMode ? "bg-amber-500 text-white" : "bg-slate-800 text-slate-500"
+                          }`}>
+                            <Trophy className="w-5 h-5" />
+                          </div>
+                          <div>
+                            <p className={`text-sm font-bold ${singleManMode ? "text-amber-400" : "text-slate-300"}`}>
+                              Single Man Mode
+                            </p>
+                            <p className="text-[10px] text-slate-500 font-medium">
+                              {singleManMode ? "Every player bats alone." : "Standard pairs batting."}
+                            </p>
+                          </div>
+                        </div>
+                        <div className={`w-12 h-6 rounded-full relative transition-colors ${
+                          singleManMode ? "bg-amber-600" : "bg-slate-700"
+                        }`}>
+                          <div className={`absolute top-1 w-4 h-4 rounded-full bg-white transition-all ${
+                            singleManMode ? "left-7" : "left-1"
+                          }`} />
+                        </div>
+                      </div>
                     </div>
                   </div>
 
                   {/* Squad Selections */}
                   <div className="space-y-3">
                     <h3 className="text-xs font-black text-slate-400 uppercase tracking-widest border-b border-slate-850 pb-2">
-                      Squad Select (Exclusion squads)
+                      Squad Select
                     </h3>
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                       {/* Team A Squad */}
                       <div className="space-y-3 p-4 rounded-2xl border border-slate-850 bg-slate-950/20">
                         <div className="flex justify-between items-center">
-                          <span className="text-xs font-black text-emerald-450 uppercase">{teamAName} Squad</span>
+                          <span className="text-xs font-black text-emerald-455 uppercase">{teamAName} Squad</span>
                           <span className="text-[10px] text-slate-500 font-semibold">{teamAPlayers.length} selected</span>
                         </div>
                         <div className="h-52 overflow-y-auto scrollbar-thin border border-slate-850 rounded-xl divide-y divide-slate-850 bg-slate-950/40 p-2">
                           {players.map(p => {
                             const isSelected = teamAPlayers.includes(p.id);
-                            const disabled = teamBPlayers.includes(p.id);
+                            const disabled = teamBPlayers.includes(p.id) && !commonPlayers.includes(p.id);
                             return (
                               <div 
                                 key={p.id}
@@ -568,7 +667,7 @@ export default function SeriesPage() {
                         <div className="h-52 overflow-y-auto scrollbar-thin border border-slate-850 rounded-xl divide-y divide-slate-850 bg-slate-950/40 p-2">
                           {players.map(p => {
                             const isSelected = teamBPlayers.includes(p.id);
-                            const disabled = teamAPlayers.includes(p.id);
+                            const disabled = teamAPlayers.includes(p.id) && !commonPlayers.includes(p.id);
                             return (
                               <div 
                                 key={p.id}
@@ -579,6 +678,31 @@ export default function SeriesPage() {
                               >
                                 <span className="text-xs font-semibold">{p.name} <span className="text-[9px] text-slate-500 font-light uppercase">({p.role.replace('_', ' ')})</span></span>
                                 {isSelected && <Check className="w-3.5 h-3.5 text-indigo-400" />}
+                              </div>
+                            );
+                          })}
+                        </div>
+                      </div>
+
+                      {/* Common Players Squad */}
+                      <div className="space-y-3 p-4 rounded-2xl border border-slate-850 bg-slate-950/20">
+                        <div className="flex justify-between items-center">
+                          <span className="text-xs font-black text-amber-550 uppercase">Common Players</span>
+                          <span className="text-[10px] text-slate-500 font-semibold">{commonPlayers.length} selected</span>
+                        </div>
+                        <div className="h-52 overflow-y-auto scrollbar-thin border border-slate-850 rounded-xl divide-y divide-slate-850 bg-slate-950/40 p-2">
+                          {players.map(p => {
+                            const isSelected = commonPlayers.includes(p.id);
+                            return (
+                              <div 
+                                key={p.id}
+                                onClick={() => togglePlayerSelection("Common", p.id)}
+                                className={`flex justify-between items-center p-2 rounded-lg cursor-pointer ${
+                                  isSelected ? "bg-amber-500/10 text-amber-500" : "text-slate-300 hover:bg-slate-900"
+                                }`}
+                              >
+                                <span className="text-xs font-semibold">{p.name} <span className="text-[9px] text-slate-500 font-light uppercase">({p.role.replace('_', ' ')})</span></span>
+                                {isSelected && <Check className="w-3.5 h-3.5 text-amber-500" />}
                               </div>
                             );
                           })}

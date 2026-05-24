@@ -49,16 +49,15 @@ export default function NewMatchPage({ searchParams }: { searchParams: Promise<{
             setTeamBName(s.team_b_name);
             setOvers(s.overs_limit);
             setBowlerLimit(s.bowler_overs_limit || 2);
+            setSingleMan(s.single_man !== 0);
             setSingleManMode(s.single_man_mode === 1);
             
             const teamAPlayerIds = JSON.parse(s.team_a_player_ids || "[]");
             const teamBPlayerIds = JSON.parse(s.team_b_player_ids || "[]");
+            const commonPlayerIds = JSON.parse(s.common_player_ids || "[]");
             setTeamAPlayers(teamAPlayerIds);
             setTeamBPlayers(teamBPlayerIds);
-
-            // Find any common players
-            const common = teamAPlayerIds.filter((id: number) => teamBPlayerIds.includes(id));
-            setCommonPlayers(common);
+            setCommonPlayers(commonPlayerIds);
           }
         }
       } catch (err) {
