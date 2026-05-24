@@ -516,9 +516,9 @@ export default function LiveScorerPage({ params }: { params: Promise<{ id: strin
                       <span>{playersMap[strikerId]?.name}*</span>
                       <Edit3 className="w-3 h-3 text-emerald-500/40 opacity-0 group-hover:opacity-100 transition-opacity" />
                     </span>
-                    <div className="text-right">
+                    <div className="text-right flex items-baseline gap-2">
                       <p className="text-sm font-black text-emerald-400">{batsmenStats[strikerId].runs}({batsmenStats[strikerId].balls})</p>
-                      <p className="text-[8px] font-black text-emerald-500/50 uppercase tracking-wider mt-0.5">SR: {getStrikeRate(batsmenStats[strikerId].runs, batsmenStats[strikerId].balls)}</p>
+                      <p className="text-[10px] font-black text-emerald-500/60 uppercase tracking-wider">SR {getStrikeRate(batsmenStats[strikerId].runs, batsmenStats[strikerId].balls)}</p>
                     </div>
                   </div>
                 )}
@@ -527,11 +527,11 @@ export default function LiveScorerPage({ params }: { params: Promise<{ id: strin
                     <span className="text-sm font-bold text-slate-300 flex items-center gap-2">
                       <span className="w-4 h-4" /> {/* align with striker icon */}
                       <span>{playersMap[nonStrikerId]?.name}</span>
-                      <Edit3 className="w-3 h-3 text-emerald-505/40 opacity-0 group-hover:opacity-100 transition-opacity" />
+                      <Edit3 className="w-3 h-3 text-emerald-500/40 opacity-0 group-hover:opacity-100 transition-opacity" />
                     </span>
-                    <div className="text-right">
+                    <div className="text-right flex items-baseline gap-2">
                       <p className="text-sm font-black text-slate-400">{batsmenStats[nonStrikerId].runs}({batsmenStats[nonStrikerId].balls})</p>
-                      <p className="text-[8px] font-black text-slate-500/50 uppercase tracking-wider mt-0.5">SR: {getStrikeRate(batsmenStats[nonStrikerId].runs, batsmenStats[nonStrikerId].balls)}</p>
+                      <p className="text-[10px] font-black text-slate-500/60 uppercase tracking-wider">SR {getStrikeRate(batsmenStats[nonStrikerId].runs, batsmenStats[nonStrikerId].balls)}</p>
                     </div>
                   </div>
                 )}
@@ -717,11 +717,14 @@ export default function LiveScorerPage({ params }: { params: Promise<{ id: strin
               className="p-3 rounded-xl bg-emerald-500/10 border-2 border-emerald-500 text-left transition-all active:scale-[0.98] cursor-pointer relative overflow-hidden ring-2 ring-emerald-500/20"
             >
               <div className="absolute top-1 right-1">
-                <Zap className="w-3.5 h-3.5 text-emerald-450 fill-emerald-500 animate-pulse" />
+                <Zap className="w-3.5 h-3.5 text-emerald-455 fill-emerald-500 animate-pulse" />
               </div>
               <span className="text-[8px] font-black text-emerald-400 uppercase tracking-wider block mb-0.5">Striker</span>
               <p className="text-xs font-black text-white truncate pr-4">{playersMap[strikerId]?.name}</p>
-              <p className="text-sm font-black text-emerald-400 mt-1">{batsmenStats[strikerId].runs} <span className="text-[10px] text-slate-400 font-normal">({batsmenStats[strikerId].balls})</span></p>
+              <div className="flex items-baseline justify-between gap-1 mt-1 flex-wrap">
+                <p className="text-sm font-black text-emerald-400">{batsmenStats[strikerId].runs} <span className="text-[10px] text-slate-400 font-normal">({batsmenStats[strikerId].balls})</span></p>
+                <span className="text-[9px] font-black text-emerald-500/60 uppercase tracking-wider">SR {getStrikeRate(batsmenStats[strikerId].runs, batsmenStats[strikerId].balls)}</span>
+              </div>
             </div>
           )}
 
@@ -730,9 +733,12 @@ export default function LiveScorerPage({ params }: { params: Promise<{ id: strin
               onClick={() => { saveHistory(); swapStriker(); }}
               className="p-3 rounded-xl bg-slate-900 border border-slate-800 hover:border-slate-700 text-left transition-all active:scale-[0.98] cursor-pointer relative"
             >
-              <span className="text-[8px] font-black text-slate-500 uppercase tracking-wider block mb-0.5">Non-Striker</span>
+              <span className="text-[8px] font-black text-slate-505 uppercase tracking-wider block mb-0.5">Non-Striker</span>
               <p className="text-xs font-bold text-slate-300 truncate">{playersMap[nonStrikerId]?.name}</p>
-              <p className="text-sm font-black text-slate-400 mt-1">{batsmenStats[nonStrikerId].runs} <span className="text-[10px] text-slate-500 font-normal">({batsmenStats[nonStrikerId].balls})</span></p>
+              <div className="flex items-baseline justify-between gap-1 mt-1 flex-wrap">
+                <p className="text-sm font-black text-slate-400">{batsmenStats[nonStrikerId].runs} <span className="text-[10px] text-slate-500 font-normal">({batsmenStats[nonStrikerId].balls})</span></p>
+                <span className="text-[9px] font-black text-slate-500/60 uppercase tracking-wider">SR {getStrikeRate(batsmenStats[nonStrikerId].runs, batsmenStats[nonStrikerId].balls)}</span>
+              </div>
             </div>
           )}
         </div>
