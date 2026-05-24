@@ -69,6 +69,7 @@ export async function POST(request: Request) {
         await sql`DROP TABLE IF EXISTS match_player_stats CASCADE`;
         await sql`DROP TABLE IF EXISTS matches CASCADE`;
         await sql`DROP TABLE IF EXISTS players CASCADE`;
+        await sql`DROP TABLE IF EXISTS series CASCADE`;
       });
 
       // Re-initialize using the central schema definition
