@@ -133,6 +133,18 @@ export default function LiveScorerPage({ params }: { params: Promise<{ id: strin
   const [showMobileBowling, setShowMobileBowling] = useState(false);
   const [showMobileBallLog, setShowMobileBallLog] = useState(false);
 
+  const battingPlayerIds = lineup
+    ? (innings === 1
+      ? (lineup.teamABatsFirst ? lineup.teamAPlayerIds : lineup.teamBPlayerIds)
+      : (lineup.teamABatsFirst ? lineup.teamBPlayerIds : lineup.teamAPlayerIds))
+    : [];
+
+  const bowlingPlayerIds = lineup
+    ? (innings === 1
+      ? (lineup.teamABatsFirst ? lineup.teamBPlayerIds : lineup.teamAPlayerIds)
+      : (lineup.teamABatsFirst ? lineup.teamAPlayerIds : lineup.teamBPlayerIds))
+    : [];
+
   useEffect(() => {
     fetch("/api/players")
       .then((res) => res.json())
@@ -284,12 +296,12 @@ export default function LiveScorerPage({ params }: { params: Promise<{ id: strin
     if (checkForHattrick(newLogs, currentBowlerId)) { bowler.hatricks += 1; alert(`HAT-TRICK! Amazing bowling by ${playersMap[currentBowlerId]?.name}!`); }
     updatedBatsmen[strikerId] = striker; updatedBowlers[currentBowlerId] = bowler;
     setWickets(newWickets); setBalls(newBalls); setBatsmenStats(updatedBatsmen); setBowlerStats(updatedBowlers); setOverHistory((prev) => [...prev, "W"]);
-    const teamSize = innings === 1 ? lineup.teamAPlayerIds.length : lineup.teamBPlayerIds.length;
+    const teamSize = battingPlayerIds.length;
     const maxWickets = lineup.singleMan ? teamSize : teamSize - 1;
     const currentOvers = newBalls / 6; const isOversEnd = newBalls % 6 === 0;
     if (newWickets >= maxWickets || currentOvers >= lineup.oversLimit) { handleInningsComplete(score, newWickets, newBalls, updatedBatsmen, updatedBowlers); }
     else {
-      const squadIds = innings === 1 ? lineup.teamAPlayerIds : lineup.teamBPlayerIds;
+      const squadIds = battingPlayerIds;
       const waitingPlayers = squadIds.filter(id => !updatedBatsmen[id]?.out && id !== nonStrikerId);
       if (waitingPlayers.length === 0 && (lineup.singleMan || lineup.singleManMode)) {
         if (!lineup.singleManMode) { setStrikerId(nonStrikerId); setNonStrikerId(null); }
@@ -320,12 +332,12 @@ export default function LiveScorerPage({ params }: { params: Promise<{ id: strin
       bowlerName: playersMap[currentBowlerId]?.name || "Bowler", bowlerId: currentBowlerId, runs: runOutRuns, extra: null, isWicket: true, wicketHow: "run_out", isDot: runOutRuns === 0
     };
     setBallsLog((prev) => [...prev, newEntry]);
-    const teamSize = innings === 1 ? lineup.teamAPlayerIds.length : lineup.teamBPlayerIds.length;
+    const teamSize = battingPlayerIds.length;
     const maxWickets = lineup.singleMan ? teamSize : teamSize - 1;
     const currentOvers = newBalls / 6; const wasOversEnd = newBalls % 6 === 0;
     if (newWickets >= maxWickets || currentOvers >= lineup.oversLimit) { handleInningsComplete(newScore, newWickets, newBalls, updatedBatsmen, updatedBowlers); }
     else {
-      const squadIds = innings === 1 ? lineup.teamAPlayerIds : lineup.teamBPlayerIds;
+      const squadIds = battingPlayerIds;
       if (lineup.singleManMode) { setStrikerId(null); setNonStrikerId(null); setReplacingSlot("striker"); setShowNextBatsmanSelect(true); if (wasOversEnd) { setLastBowlerId(currentBowlerId); setShowBowlerSelect(true); } return; }
       let finalStrikerId: number | null = null; let finalNonStrikerId: number | null = null; let slotToFill: "striker" | "non-striker" = "striker";
       const isOddRuns = runOutRuns % 2 !== 0;
@@ -434,7 +446,7 @@ export default function LiveScorerPage({ params }: { params: Promise<{ id: strin
       alert(`HAT-TRICK! Amazing bowling by ${playersMap[currentBowlerId]?.name}!`);
     }
 
-    const squadIds = innings === 1 ? lineup.teamAPlayerIds : lineup.teamBPlayerIds;
+    const squadIds = battingPlayerIds;
     const teamSize = squadIds.length;
     const maxWickets = lineup.singleMan ? teamSize : teamSize - 1;
 
@@ -529,7 +541,7 @@ export default function LiveScorerPage({ params }: { params: Promise<{ id: strin
     };
     setBallsLog((prev) => [...prev, newEntry]);
 
-    const squadIds = innings === 1 ? lineup.teamAPlayerIds : lineup.teamBPlayerIds;
+    const squadIds = battingPlayerIds;
     const teamSize = squadIds.length;
     const maxWickets = lineup.singleMan ? teamSize : teamSize - 1;
 
@@ -578,12 +590,12 @@ export default function LiveScorerPage({ params }: { params: Promise<{ id: strin
     };
     const newLogs = [...ballsLog, newEntry]; setBallsLog(newLogs);
     if (checkForHattrick(newLogs, currentBowlerId)) { bowler.hatricks += 1; alert(`HAT-TRICK! Amazing bowling by ${playersMap[currentBowlerId]?.name}!`); }
-    const teamSize = innings === 1 ? lineup.teamAPlayerIds.length : lineup.teamBPlayerIds.length;
+    const teamSize = battingPlayerIds.length;
     const maxWickets = lineup.singleMan ? teamSize : teamSize - 1;
     const currentOvers = newBalls / 6; const isOversEnd = newBalls % 6 === 0;
     if (newWickets >= maxWickets || currentOvers >= lineup.oversLimit) { handleInningsComplete(score, newWickets, newBalls, updatedBatsmen, updatedBowlers); }
     else {
-      const squadIds = innings === 1 ? lineup.teamAPlayerIds : lineup.teamBPlayerIds;
+      const squadIds = battingPlayerIds;
       const waitingPlayers = squadIds.filter(id => !updatedBatsmen[id]?.out && id !== nonStrikerId);
       if (lineup.singleManMode) { setStrikerId(null); setNonStrikerId(null); setReplacingSlot("striker"); setShowNextBatsmanSelect(true); if (isOversEnd) { setLastBowlerId(currentBowlerId); setShowBowlerSelect(true); } return; }
       if (waitingPlayers.length === 0 && (lineup.singleMan || lineup.singleManMode)) { if (!lineup.singleManMode) { setStrikerId(nonStrikerId); setNonStrikerId(null); } if (isOversEnd) { setLastBowlerId(currentBowlerId); setShowBowlerSelect(true); } }
@@ -895,7 +907,7 @@ export default function LiveScorerPage({ params }: { params: Promise<{ id: strin
           <h3 className="text-[10px] font-black text-emerald-400 uppercase tracking-widest flex items-center gap-2 pb-2 border-b border-slate-900"><Activity className="w-4 h-4" /> Bowling Analysis ({bowlingTeamName})</h3>
           <div className="overflow-x-auto"><table className="w-full text-left text-[11px]"><thead className="text-slate-600 font-black uppercase tracking-widest border-b border-slate-900/60"><tr><th className="py-2 px-1">Bowler</th><th className="py-2 px-1 text-center">O</th><th className="py-2 px-1 text-center">R</th><th className="py-2 px-1 text-center">W</th><th className="py-2 px-1 text-center">Dots</th><th className="py-2 px-1 text-center">HT</th><th className="py-2 px-1 text-right">Econ</th></tr></thead>
             <tbody className="divide-y divide-slate-900/40">
-              {(innings === 1 ? (lineup.teamABatsFirst ? lineup.teamBPlayerIds : lineup.teamAPlayerIds) : (lineup.teamABatsFirst ? lineup.teamAPlayerIds : lineup.teamBPlayerIds)).filter(id => bowlerStats[id] && bowlerStats[id].balls > 0).map(id => (
+              {bowlingPlayerIds.filter(id => bowlerStats[id] && bowlerStats[id].balls > 0).map(id => (
                 <tr key={id} className={`transition-colors ${id === currentBowlerId ? 'bg-emerald-500/5' : ''}`}>
                   <td className="py-4 px-1 font-bold text-slate-200"><div className="flex items-center gap-2">{id === currentBowlerId && <div className="h-1.5 w-1.5 rounded-full bg-emerald-500 animate-pulse" />}{playersMap[id]?.name}</div></td>
                   <td className="py-4 px-1 text-center font-bold text-slate-400">{getOvers(bowlerStats[id].balls)}</td>
@@ -1068,7 +1080,7 @@ export default function LiveScorerPage({ params }: { params: Promise<{ id: strin
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-slate-900/40">
-                      {(innings === 1 ? (lineup.teamABatsFirst ? lineup.teamBPlayerIds : lineup.teamAPlayerIds) : (lineup.teamABatsFirst ? lineup.teamAPlayerIds : lineup.teamBPlayerIds)).filter(id => bowlerStats[id] && bowlerStats[id].balls > 0).map(id => (
+                      {bowlingPlayerIds.filter(id => bowlerStats[id] && bowlerStats[id].balls > 0).map(id => (
                         <tr key={id} className={`transition-colors ${id === currentBowlerId ? 'bg-emerald-500/5' : ''}`}>
                           <td className="py-2.5 px-0.5 font-bold text-slate-300">
                             <div className="flex items-center gap-1.5 truncate max-w-[110px]">
@@ -1082,7 +1094,7 @@ export default function LiveScorerPage({ params }: { params: Promise<{ id: strin
                           <td className="py-2.5 px-0.5 text-right font-bold text-emerald-450">{getEconomy(bowlerStats[id].runs, bowlerStats[id].balls)}</td>
                         </tr>
                       ))}
-                      {(innings === 1 ? (lineup.teamABatsFirst ? lineup.teamBPlayerIds : lineup.teamAPlayerIds) : (lineup.teamABatsFirst ? lineup.teamAPlayerIds : lineup.teamBPlayerIds)).filter(id => bowlerStats[id] && bowlerStats[id].balls > 0).length === 0 && (
+                      {bowlingPlayerIds.filter(id => bowlerStats[id] && bowlerStats[id].balls > 0).length === 0 && (
                         <tr>
                           <td colSpan={5} className="py-4 text-center text-slate-600 italic">No bowling stats logged yet.</td>
                         </tr>
@@ -1527,7 +1539,7 @@ export default function LiveScorerPage({ params }: { params: Promise<{ id: strin
               <h3 className="text-lg font-black text-white mb-1 uppercase tracking-tighter">Next Bowler</h3>
               <p className="text-[10px] text-slate-500 font-bold uppercase mb-5">{bowlingTeamName} to bowl</p>
               <div className="space-y-2 max-h-[300px] overflow-y-auto pr-1">
-                {(innings === 1 ? (lineup.teamABatsFirst ? lineup.teamBPlayerIds : lineup.teamAPlayerIds) : (lineup.teamABatsFirst ? lineup.teamAPlayerIds : lineup.teamBPlayerIds)).map((id) => {
+                {bowlingPlayerIds.map((id) => {
                   const isLast = id === lastBowlerId;
                   const overs = bowlerStats[id] ? Math.floor(bowlerStats[id].balls / 6) : 0;
                   const limited = lineup.bowlerLimit > 0 && overs >= lineup.bowlerLimit;
@@ -1551,7 +1563,7 @@ export default function LiveScorerPage({ params }: { params: Promise<{ id: strin
               <h3 className="text-lg font-black text-white mb-1 uppercase tracking-tighter">Next Batsman</h3>
               <p className="text-[10px] text-slate-500 font-bold uppercase mb-5">{battingTeamName} to bat</p>
               <div className="space-y-2 max-h-[300px] overflow-y-auto pr-1">
-                {(innings === 1 ? lineup.teamAPlayerIds : lineup.teamBPlayerIds).map((id) => {
+                {battingPlayerIds.map((id) => {
                   const out = batsmenStats[id]?.out; const playing = id === strikerId || id === nonStrikerId;
                   return (<button key={id} disabled={out || playing} onClick={() => { if (out || playing) return; if (replacingSlot === "striker") { setStrikerId(id); } else { setNonStrikerId(id); } setBatsmenStats(prev => ({ ...prev, [id]: prev[id] || { playerId: id, runs: 0, balls: 0, fours: 0, sixes: 0, out: false } })); setShowNextBatsmanSelect(false); }} className={`w-full flex items-center justify-between p-4 rounded-2xl border transition-all cursor-pointer active:scale-98 duration-75 ${out || playing ? "opacity-35 border-slate-800 bg-slate-955 cursor-not-allowed" : "border-slate-800 bg-slate-900 hover:border-emerald-500/50"}`}>
                       <div className="text-left"><p className="text-sm font-black text-white">{playersMap[id]?.name}</p>{out && <p className="text-[8px] text-rose-500 font-black uppercase mt-0.5">Out</p>} {playing && <p className="text-[8px] text-emerald-500 font-black uppercase mt-0.5">Active</p>}</div>
@@ -1625,14 +1637,12 @@ export default function LiveScorerPage({ params }: { params: Promise<{ id: strin
                       </div>
                     )}
                   </div>
-                </div>
-
-                <div><label className="text-[10px] font-black text-emerald-500 uppercase tracking-widest block mb-3">Striker</label>
-                  <div className="grid grid-cols-1 gap-2">{(innings === 1 ? lineup.teamAPlayerIds : lineup.teamBPlayerIds).map(id => (<button key={id} disabled={batsmenStats[id]?.out && id !== strikerId} onClick={() => { if (id === nonStrikerId) setNonStrikerId(strikerId); setStrikerId(id); setBatsmenStats(prev => ({ ...prev, [id]: prev[id] || { playerId: id, runs: 0, balls: 0, fours: 0, sixes: 0, out: false } })); }} className={`p-3 rounded-xl border text-xs font-bold transition-all cursor-pointer active:scale-98 duration-75 ${id === strikerId ? "border-emerald-500 bg-emerald-500/10 text-white" : "border-slate-800 text-slate-500 hover:border-slate-700"}`}>{playersMap[id]?.name}</button>))}</div>
+                                <div><label className="text-[10px] font-black text-emerald-500 uppercase tracking-widest block mb-3">Striker</label>
+                  <div className="grid grid-cols-1 gap-2">{battingPlayerIds.map(id => (<button key={id} disabled={batsmenStats[id]?.out && id !== strikerId} onClick={() => { if (id === nonStrikerId) setNonStrikerId(strikerId); setStrikerId(id); setBatsmenStats(prev => ({ ...prev, [id]: prev[id] || { playerId: id, runs: 0, balls: 0, fours: 0, sixes: 0, out: false } })); }} className={`p-3 rounded-xl border text-xs font-bold transition-all cursor-pointer active:scale-98 duration-75 ${id === strikerId ? "border-emerald-500 bg-emerald-500/10 text-white" : "border-slate-800 text-slate-500 hover:border-slate-700"}`}>{playersMap[id]?.name}</button>))}</div>
                 </div>
                 <div><label className="text-[10px] font-black text-indigo-500 uppercase tracking-widest block mb-3">Non-Striker</label>
-                  <div className="grid grid-cols-1 gap-2">{(innings === 1 ? lineup.teamAPlayerIds : lineup.teamBPlayerIds).map(id => (<button key={id} disabled={batsmenStats[id]?.out && id !== nonStrikerId} onClick={() => { if (id === strikerId) setStrikerId(nonStrikerId); setNonStrikerId(id); setBatsmenStats(prev => ({ ...prev, [id]: prev[id] || { playerId: id, runs: 0, balls: 0, fours: 0, sixes: 0, out: false } })); }} className={`p-3 rounded-xl border text-xs font-bold transition-all cursor-pointer active:scale-98 duration-75 ${id === nonStrikerId ? "border-indigo-500 bg-indigo-550/10 text-white" : "border-slate-800 text-slate-550 hover:border-slate-700"}`}>{playersMap[id]?.name}</button>))}</div>
-                </div>
+                  <div className="grid grid-cols-1 gap-2">{battingPlayerIds.map(id => (<button key={id} disabled={batsmenStats[id]?.out && id !== nonStrikerId} onClick={() => { if (id === strikerId) setStrikerId(nonStrikerId); setNonStrikerId(id); setBatsmenStats(prev => ({ ...prev, [id]: prev[id] || { playerId: id, runs: 0, balls: 0, fours: 0, sixes: 0, out: false } })); }} className={`p-3 rounded-xl border text-xs font-bold transition-all cursor-pointer active:scale-98 duration-75 ${id === nonStrikerId ? "border-indigo-500 bg-indigo-550/10 text-white" : "border-slate-800 text-slate-550 hover:border-slate-700"}`}>{playersMap[id]?.name}</button>))}</div>
+                </div>  </div>
                 <div className="border-t border-slate-800 pt-6">
                   <label className="text-[10px] font-black text-amber-500 uppercase tracking-widest block mb-3">Reduce Overs Limit</label>
                   <div className="grid grid-cols-4 gap-2 mb-4">
