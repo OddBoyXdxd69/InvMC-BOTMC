@@ -41,7 +41,7 @@ export async function POST(request: Request) {
     const { action } = body;
 
     if (action === "create") {
-      const { team_a_name, team_b_name, overs_limit, single_man, single_man_mode, toss_winner_id, toss_decision, bowler_overs_limit } = body;
+      const { team_a_name, team_b_name, overs_limit, single_man, single_man_mode, toss_winner_id, toss_decision, bowler_overs_limit, series_id } = body;
 
       if (!team_a_name || !team_b_name || !overs_limit) {
         return NextResponse.json({ error: "Missing required fields" }, { status: 400 });
@@ -58,12 +58,12 @@ export async function POST(request: Request) {
       const result = await sql`
         INSERT INTO matches (
           team_a_name, team_b_name, overs_limit, status, date, 
-          single_man, single_man_mode, toss_winner_id, toss_decision, bowler_overs_limit
+          single_man, single_man_mode, toss_winner_id, toss_decision, bowler_overs_limit, series_id
         )
         VALUES (
           ${team_a_name.trim()}, ${team_b_name.trim()}, ${Number(overs_limit)}, 'live', ${dateStr}, 
           ${single_man ? 1 : 0}, ${single_man_mode ? 1 : 0}, ${toss_winner_id ? Number(toss_winner_id) : null}, 
-          ${toss_decision || null}, ${Number(bowler_overs_limit || 0)}
+          ${toss_decision || null}, ${Number(bowler_overs_limit || 0)}, ${series_id ? Number(series_id) : null}
         )
         RETURNING id
       `;

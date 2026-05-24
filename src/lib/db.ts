@@ -75,6 +75,23 @@ export const initDB = async () => {
   await sql`ALTER TABLE matches ADD COLUMN IF NOT EXISTS toss_winner_id INTEGER`;
   await sql`ALTER TABLE matches ADD COLUMN IF NOT EXISTS toss_decision TEXT`;
   await sql`ALTER TABLE matches ADD COLUMN IF NOT EXISTS bowler_overs_limit INTEGER DEFAULT 0`;
+
+  await sql`
+    CREATE TABLE IF NOT EXISTS series (
+      id SERIAL PRIMARY KEY,
+      name TEXT NOT NULL,
+      team_a_name TEXT NOT NULL,
+      team_b_name TEXT NOT NULL,
+      team_a_player_ids TEXT NOT NULL,
+      team_b_player_ids TEXT NOT NULL,
+      overs_limit INTEGER NOT NULL,
+      bowler_overs_limit INTEGER DEFAULT 0,
+      single_man_mode INTEGER DEFAULT 0,
+      status TEXT NOT NULL DEFAULT 'active' CHECK(status IN ('active', 'completed')),
+      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    );
+  `;
+  await sql`ALTER TABLE matches ADD COLUMN IF NOT EXISTS series_id INTEGER REFERENCES series(id) ON DELETE SET NULL`;
 };
 
 export default sql;

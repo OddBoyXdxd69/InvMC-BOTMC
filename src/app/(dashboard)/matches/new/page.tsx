@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, use } from "react";
 import { useRouter } from "next/navigation";
 import { Trophy, Users, Play, Sparkles, ArrowLeftRight, Lock, Unlock, Check } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
@@ -11,8 +11,11 @@ interface Player {
   role: string;
 }
 
-export default function NewMatchPage() {
+export default function NewMatchPage({ searchParams }: { searchParams: Promise<{ seriesId?: string }> }) {
   const router = useRouter();
+  const resolvedSearchParams = use(searchParams);
+  const seriesId = resolvedSearchParams.seriesId;
+
   const [players, setPlayers] = useState<Player[]>([]);
   const [teamAName, setTeamAName] = useState("Team A");
   const [teamBName, setTeamBName] = useState("Team B");
@@ -31,17 +34,41 @@ export default function NewMatchPage() {
   const [error, setError] = useState("");
 
   useEffect(() => {
-    fetch("/api/players")
-      .then((res) => res.json())
-      .then((data) => {
-        setPlayers(Array.isArray(data) ? data : []);
+    const loadData = async () => {
+      try {
+        const playersRes = await fetch("/api/players");
+        const playersData = await playersRes.json();
+        setPlayers(Array.isArray(playersData) ? playersData : []);
+
+        if (seriesId) {
+          const seriesRes = await fetch(`/api/series?id=${seriesId}`);
+          if (seriesRes.ok) {
+            const seriesData = await seriesRes.json();
+            const s = seriesData.series;
+            setTeamAName(s.team_a_name);
+            setTeamBName(s.team_b_name);
+            setOvers(s.overs_limit);
+            setBowlerLimit(s.bowler_overs_limit || 2);
+            setSingleManMode(s.single_man_mode === 1);
+            
+            const teamAPlayerIds = JSON.parse(s.team_a_player_ids || "[]");
+            const teamBPlayerIds = JSON.parse(s.team_b_player_ids || "[]");
+            setTeamAPlayers(teamAPlayerIds);
+            setTeamBPlayers(teamBPlayerIds);
+
+            // Find any common players
+            const common = teamAPlayerIds.filter((id: number) => teamBPlayerIds.includes(id));
+            setCommonPlayers(common);
+          }
+        }
+      } catch (err) {
+        console.error("Failed to load data:", err);
+      } finally {
         setLoading(false);
-      })
-      .catch((err) => {
-        console.error("Failed to load players:", err);
-        setLoading(false);
-      });
-  }, []);
+      }
+    };
+    loadData();
+  }, [seriesId]);
 
   const toggleCommonPlayer = (playerId: number) => {
     setCommonPlayers((prev) => {
@@ -133,7 +160,8 @@ export default function NewMatchPage() {
           single_man_mode: singleManMode,
           toss_winner_id: tossWinner === "A" ? 1 : (tossWinner === "B" ? 2 : null), // Temporary logic for API
           toss_decision: tossDecision,
-          bowler_overs_limit: Number(bowlerLimit)
+          bowler_overs_limit: Number(bowlerLimit),
+          series_id: seriesId ? Number(seriesId) : null
         }),
       });
 
