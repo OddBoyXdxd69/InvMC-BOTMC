@@ -51,7 +51,7 @@ interface BallLogEntry {
   bowlerName: string;
   bowlerId: number;
   runs: number;
-  extra: "wide" | "noball" | "bye" | "six_out" | null;
+  extra: "wide" | "noball" | "bye" | "six_out" | "common_out" | null;
   isWicket: boolean;
   wicketHow?: string;
   isDot: boolean;
@@ -332,19 +332,19 @@ export default function LiveScorerPage({ params }: { params: Promise<{ id: strin
     }
   };
 
-  const handleSixAndOut = () => {
+  const handleCommonOut = () => {
     if (!strikerId || !currentBowlerId || !lineup) return;
     saveHistory();
     const newBalls = balls + 1; const newWickets = wickets + 1;
     const updatedBatsmen = { ...batsmenStats }; const updatedBowlers = { ...bowlerStats };
     const striker = { ...updatedBatsmen[strikerId] }; const bowler = { ...updatedBowlers[currentBowlerId] };
-    striker.balls += 1; striker.out = true; striker.wicketHow = "six_out";
+    striker.balls += 1; striker.out = true; striker.wicketHow = "common_out";
     bowler.balls += 1; bowler.wickets += 1; bowler.dot_balls_bowled += 1;
     updatedBatsmen[strikerId] = striker; updatedBowlers[currentBowlerId] = bowler;
-    setBalls(newBalls); setWickets(newWickets); setBatsmenStats(updatedBatsmen); setBowlerStats(updatedBowlers); setOverHistory((prev) => [...prev, "6W"]);
+    setBalls(newBalls); setWickets(newWickets); setBatsmenStats(updatedBatsmen); setBowlerStats(updatedBowlers); setOverHistory((prev) => [...prev, "CO"]);
     const newEntry: BallLogEntry = {
       innings, over: Math.floor(balls / 6), ball: (balls % 6) + 1, strikerName: playersMap[strikerId]?.name || "Batsman",
-      bowlerName: playersMap[currentBowlerId]?.name || "Bowler", bowlerId: currentBowlerId, runs: 0, extra: "six_out", isWicket: true, wicketHow: "six_out", isDot: true
+      bowlerName: playersMap[currentBowlerId]?.name || "Bowler", bowlerId: currentBowlerId, runs: 0, extra: "common_out", isWicket: true, wicketHow: "common_out", isDot: true
     };
     const newLogs = [...ballsLog, newEntry]; setBallsLog(newLogs);
     if (checkForHattrick(newLogs, currentBowlerId)) { bowler.hatricks += 1; alert(`HAT-TRICK! Amazing bowling by ${playersMap[currentBowlerId]?.name}!`); }
@@ -598,12 +598,12 @@ export default function LiveScorerPage({ params }: { params: Promise<{ id: strin
               </button>
 
               <button 
-                onClick={() => handleScoreBall(6)} 
+                onClick={handleCommonOut} 
                 style={{ touchAction: 'manipulation' }}
-                className="h-16 sm:h-20 rounded-2xl border font-black transition-all cursor-pointer flex flex-col items-center justify-center bg-indigo-500/10 border-indigo-500/30 text-indigo-400 shadow-[0_0_15px_rgba(99,102,241,0.08)] hover:bg-indigo-500/20 select-none active:scale-95 duration-75"
+                className="h-16 sm:h-20 rounded-2xl border font-black transition-all cursor-pointer flex flex-col items-center justify-center bg-rose-500/10 border-rose-500/30 text-rose-450 shadow-[0_0_15px_rgba(239,68,68,0.08)] hover:bg-rose-500/20 select-none active:scale-95 duration-75"
               >
-                <span className="text-xl sm:text-2xl">6</span>
-                <span className="text-[7px] sm:text-[8px] font-black text-indigo-400/70 uppercase tracking-widest mt-0.5">SIX</span>
+                <span className="text-sm sm:text-base font-black">COMMON</span>
+                <span className="text-[7px] sm:text-[8px] font-black text-rose-550 uppercase tracking-widest mt-0.5">OUT</span>
               </button>
 
               <button 
@@ -892,7 +892,7 @@ export default function LiveScorerPage({ params }: { params: Promise<{ id: strin
           
           {/* Row 1: Tactile Runs Pad (0, 1, 2, 3 on Row 1; 4, 5, 6, Undo on Row 2) */}
           <div className="grid grid-cols-4 gap-1.5">
-            {[0, 1, 2, 3, 4, 5, 6, "undo"].map((r) => {
+            {[0, 1, 2, 3, 4, 5, "common_out", "undo"].map((r) => {
               if (r === "undo") {
                 return (
                   <button
@@ -900,7 +900,7 @@ export default function LiveScorerPage({ params }: { params: Promise<{ id: strin
                     onClick={handleUndo}
                     disabled={history.length === 0}
                     style={{ touchAction: "manipulation" }}
-                    className="h-11 rounded-xl border border-rose-900/30 bg-rose-950/20 text-rose-400 disabled:opacity-20 font-black text-xs uppercase tracking-wider flex items-center justify-center gap-1 transition-all active:scale-95 select-none"
+                    className="h-11 rounded-xl border border-rose-900/30 bg-rose-950/20 text-rose-450 disabled:opacity-20 font-black text-xs uppercase tracking-wider flex items-center justify-center gap-1 transition-all active:scale-95 select-none"
                   >
                     <Undo2 className="w-3.5 h-3.5" />
                     <span>Undo</span>
@@ -908,8 +908,22 @@ export default function LiveScorerPage({ params }: { params: Promise<{ id: strin
                 );
               }
 
+              if (r === "common_out") {
+                return (
+                  <button
+                    key="common_out"
+                    onClick={handleCommonOut}
+                    style={{ touchAction: "manipulation" }}
+                    className="h-11 rounded-xl border border-rose-500/30 bg-rose-600/10 text-rose-450 font-black text-xs uppercase tracking-wider flex flex-col items-center justify-center transition-all active:scale-95 select-none"
+                  >
+                    <span className="text-[10px] leading-none">COMMON</span>
+                    <span className="text-[6px] font-black text-rose-500 tracking-wider">OUT</span>
+                  </button>
+                );
+              }
+
               const runsVal = r as number;
-              const isBoundary = runsVal === 4 || runsVal === 6;
+              const isBoundary = runsVal === 4;
               const isDot = runsVal === 0;
               return (
                 <button
@@ -918,9 +932,7 @@ export default function LiveScorerPage({ params }: { params: Promise<{ id: strin
                   style={{ touchAction: "manipulation" }}
                   className={`h-11 rounded-xl border text-sm font-black flex flex-col items-center justify-center transition-all active:scale-95 select-none ${
                     isBoundary
-                      ? runsVal === 4
-                        ? "bg-emerald-500/10 border-emerald-500/30 text-emerald-400"
-                        : "bg-indigo-500/10 border-indigo-500/30 text-indigo-400"
+                      ? "bg-emerald-500/10 border-emerald-500/30 text-emerald-400"
                       : isDot
                         ? "bg-slate-900/60 border-slate-850 text-slate-450"
                         : "bg-slate-900/40 border-slate-850 text-slate-200"
@@ -928,7 +940,7 @@ export default function LiveScorerPage({ params }: { params: Promise<{ id: strin
                 >
                   <span className="text-base leading-none">{runsVal}</span>
                   <span className="text-[6px] font-black text-slate-500 tracking-wider">
-                    {runsVal === 0 ? "DOT" : runsVal === 4 ? "FOUR" : runsVal === 6 ? "SIX" : runsVal === 5 ? "FIVE" : "RUN"}
+                    {runsVal === 0 ? "DOT" : runsVal === 4 ? "FOUR" : runsVal === 5 ? "FIVE" : "RUN"}
                   </span>
                 </button>
               );
